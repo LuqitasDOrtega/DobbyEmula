@@ -4,7 +4,7 @@ const fs    = require('fs');
 const http  = require('http');
 const https = require('https');
 
-const GITHUB_REPO = 'LuqitasDOrtega/dobbyemula';
+const GITHUB_REPO = 'LuqitasDOrtega/DobbyEmula';
 
 function checkForUpdates() {
   const options = {
