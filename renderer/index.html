@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>DobbyEmula</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- TITLE BAR -->
+<div id="titlebar">
+  <div id="titlebar-left">
+    <img id="logo" src="../assets/icon-preview.png" alt="DobbyEmula">
+    <span id="appname">DobbyEmula</span>
+  </div>
+
+  <!-- MENU BAR -->
+  <nav id="menubar">
+
+    <div class="menu-item" id="menu-file">
+      <span>Archivo</span>
+      <ul class="dropdown">
+        <li id="action-open">&#128194; Abrir ROM&hellip;</li>
+        <li id="action-close" class="disabled">&#10006; Cerrar ROM</li>
+        <li class="sep"></li>
+        <li id="action-quit">Salir</li>
+      </ul>
+    </div>
+
+    <div class="menu-item" id="menu-emu">
+      <span>Emulación</span>
+      <ul class="dropdown">
+        <li id="action-pause"      class="disabled">&#9646;&#9646; Pausar</li>
+        <li id="action-reset"      class="disabled">&#8635; Reiniciar</li>
+        <li class="sep"></li>
+        <li id="action-save-state" class="disabled">&#128190; Guardar estado&nbsp;<kbd>F5</kbd></li>
+        <li id="action-load-state" class="disabled">&#128193; Cargar estado&nbsp;<kbd>F9</kbd></li>
+        <li class="sep"></li>
+        <li id="action-fullscreen">&#9974; Pantalla completa&nbsp;<kbd>F11</kbd></li>
+      </ul>
+    </div>
+
+    <div class="menu-item" id="menu-settings">
+      <span>Configuración</span>
+      <ul class="dropdown">
+        <li id="action-controls-cfg">&#127918; Controles&hellip;</li>
+        <li id="action-gamepad-info">&#128377; Joystick&hellip;</li>
+        <li id="action-shortcuts-info">&#9000; Atajos de teclado&hellip;</li>
+        <li class="sep"></li>
+        <li id="action-graphics-cfg">&#128249; Gráficos&hellip;</li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- WINDOW CONTROLS -->
+  <div id="wincontrols">
+    <button id="btn-min"   title="Minimizar">&#8722;</button>
+    <button id="btn-max"   title="Maximizar">&#9633;</button>
+    <button id="btn-close" title="Cerrar" class="close">&#10005;</button>
+  </div>
+</div>
+
+<!-- CONTENT AREA -->
+<div id="game-area">
+
+  <!-- HOME SCREEN -->
+  <div id="screen-home" class="hidden">
+    <div id="home-header">
+      <img id="home-logo" src="../assets/icon-preview.png" alt="DobbyEmula">
+      <h1 id="home-title">DobbyEmula</h1>
+      <p id="home-hint">Elegí una consola para ver tus juegos</p>
+    </div>
+    <div id="recent-section" class="hidden">
+      <div class="recent-header">
+        <span class="recent-label">Recientes</span>
+        <button id="btn-clear-recents" class="recent-clear-btn">Limpiar</button>
+      </div>
+      <div id="recent-row"></div>
+    </div>
+    <div id="console-grid"></div>
+  </div>
+
+  <!-- LIBRARY SCREEN -->
+  <div id="screen-library" class="hidden">
+    <div id="library-header">
+      <button id="btn-back-home">&#8592; Consolas</button>
+      <div id="library-title-area">
+        <h2 id="library-title"></h2>
+        <span id="library-count"></span>
+      </div>
+    </div>
+    <div id="library-toolbar">
+      <div id="search-wrap">
+        <span id="search-icon">&#128269;</span>
+        <input id="search-input" type="text" placeholder="Buscar juego..." autocomplete="off" spellcheck="false" />
+        <button id="search-clear" class="hidden" title="Limpiar">&#10005;</button>
+      </div>
+      <div id="filter-btns">
+        <button class="filter-btn active" data-filter="all">Todos</button>
+        <button class="filter-btn" data-filter="favs">&#9733; Favoritos</button>
+      </div>
+    </div>
+    <div id="rom-grid-wrap">
+      <div id="rom-grid"></div>
+      <div id="rom-empty" class="hidden">
+        <p>No hay juegos en esta carpeta</p>
+        <p class="empty-hint">Copiá tus ROMs en la carpeta <code>ROMs/</code> correspondiente y reiniciá la app.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME CONTAINER -->
+  <div id="game-container" class="hidden"></div>
+
+  <!-- SCANLINES OVERLAY (sits above game-container, pointer-events: none) -->
+  <div id="scanlines-overlay" class="hidden"></div>
+
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="modal-controls" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <h2>&#9881; Configuración</h2>
+      <button class="modal-close-btn">&#10005;</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- OUTER TABS -->
+      <div class="outer-tabs" id="settings-outer-tabs">
+        <button class="outer-tab" data-outer="controls">&#127918; Controles</button>
+        <button class="outer-tab" data-outer="joystick">&#128377; Joystick</button>
+        <button class="outer-tab" data-outer="shortcuts">&#9000; Atajos</button>
+        <button class="outer-tab" data-outer="graphics">&#128249; Gráficos</button>
+      </div>
+
+      <!-- CONTROLS SECTION -->
+      <div id="outer-controls" class="outer-content hidden">
+        <div class="tabs" id="console-tabs">
+          <button class="tab" data-console="snes9x">SNES</button>
+          <button class="tab" data-console="genesis_plus_gx">Genesis</button>
+          <button class="tab" data-console="mgba">GBA</button>
+          <button class="tab" data-console="gambatte">Game Boy</button>
+          <button class="tab" data-console="smsplus">Master System</button>
+        </div>
+        <div id="tab-keyboard" class="tab-content">
+          <p class="controls-hint">Clic en un botón y después presioná la tecla que querés asignar.</p>
+          <div class="controls-grid" id="keys-grid"></div>
+        </div>
+      </div>
+
+      <!-- JOYSTICK SECTION -->
+      <div id="outer-joystick" class="outer-content hidden">
+        <div id="gamepad-status" class="info-box"></div>
+        <p class="controls-hint">
+          Conectá tu joystick/gamepad <strong>antes</strong> de abrir un juego.<br>
+          Es reconocido automáticamente. Podés verificar los botones detectados abajo.
+        </p>
+        <div id="gamepad-buttons"></div>
+        <div class="gamepad-tip">
+          <strong>Tip:</strong> La mayoría de gamepads USB y Xbox/PlayStation funcionan sin configuración adicional.
+        </div>
+      </div>
+
+      <!-- SHORTCUTS SECTION -->
+      <div id="outer-shortcuts" class="outer-content hidden">
+        <p class="controls-hint">Atajos fijos disponibles en cualquier momento.</p>
+        <table class="shortcuts-table">
+          <tbody>
+            <tr><td><kbd>Ctrl+O</kbd></td><td>Abrir ROM</td></tr>
+            <tr class="sep-row"><td></td><td></td></tr>
+            <tr><td><kbd>F5</kbd></td><td>Guardar estado rápido</td></tr>
+            <tr><td><kbd>F9</kbd></td><td>Cargar estado rápido</td></tr>
+            <tr class="sep-row"><td></td><td></td></tr>
+            <tr><td><kbd>F11</kbd></td><td>Pantalla completa</td></tr>
+            <tr class="sep-row"><td></td><td></td></tr>
+            <tr><td><kbd>Escape</kbd></td><td>Cerrar menús / modal</td></tr>
+          </tbody>
+        </table>
+        <div class="shortcuts-note">
+          <strong>F5 / F9</strong> solo funcionan con un juego en curso.
+        </div>
+
+        <div class="ff-config">
+          <div class="ff-config-title">Fast Forward <span>— mantener apretado para acelerar</span></div>
+          <div class="ff-config-row">
+            <span class="key-label">Tecla</span>
+            <button id="ff-key-btn" class="key-btn">Tab</button>
+          </div>
+          <div class="gfx-hint">Clic en el botón y presioná la tecla o botón del joystick que querés asignar.</div>
+          <div class="ff-speed-row">
+            <span class="key-label">Velocidad</span>
+            <div class="gfx-options" id="ff-speed-opts">
+              <button class="gfx-opt" data-speed="2">2×</button>
+              <button class="gfx-opt" data-speed="3">3×</button>
+              <button class="gfx-opt" data-speed="4">4×</button>
+              <button class="gfx-opt" data-speed="8">8×</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRAPHICS SECTION -->
+      <div id="outer-graphics" class="outer-content hidden">
+        <div class="gfx-group">
+          <div class="gfx-group-label">Relación de aspecto</div>
+          <div class="gfx-options" id="gfx-aspect">
+            <button class="gfx-opt" data-value="original">Original (4:3)</button>
+            <button class="gfx-opt" data-value="stretch">Estirado</button>
+            <button class="gfx-opt" data-value="16:9">16:9</button>
+          </div>
+        </div>
+        <div class="gfx-group">
+          <div class="gfx-group-label">Filtro de imagen</div>
+          <div class="gfx-options" id="gfx-filter">
+            <button class="gfx-opt" data-value="pixelated">&#9638; Pixelado</button>
+            <button class="gfx-opt" data-value="smooth">&#9632; Suavizado</button>
+          </div>
+          <div class="gfx-hint">Pixelado: look retro nítido. Suavizado: bordes más suaves.</div>
+        </div>
+        <div class="gfx-group">
+          <div class="gfx-group-label">Scanlines (CRT) <span id="gfx-scanlines-val">0%</span></div>
+          <input type="range" id="gfx-scanlines" class="gfx-slider" min="0" max="80" step="5" value="0">
+          <div class="gfx-hint">Simula las líneas horizontales de una pantalla CRT.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button id="btn-controls-reset" class="btn-secondary">Restablecer</button>
+      <div class="footer-actions">
+        <button id="btn-controls-save" class="btn-primary">Guardar</button>
+        <button class="btn-secondary modal-cancel-btn">Cancelar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- UPDATE BANNER -->
+<div id="update-banner" class="hidden">
+  <span id="update-text"></span>
+  <button id="update-download-btn">Descargar</button>
+  <button id="update-dismiss-btn">✕</button>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <span id="status-left">Listo</span>
+  <div id="slot-bar" class="hidden">
+    <span class="slot-label">Slot</span>
+    <button class="slot-btn" data-slot="1">1</button>
+    <button class="slot-btn" data-slot="2">2</button>
+    <button class="slot-btn" data-slot="3">3</button>
+    <button class="slot-btn" data-slot="4">4</button>
+    <button class="slot-btn" data-slot="5">5</button>
+    <span class="slot-sep">·</span>
+    <span class="slot-hints">F5 Guardar&nbsp;&nbsp;F9 Cargar</span>
+  </div>
+  <span id="status-right"></span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(java *)",
+      "PowerShell(python -m pip install pygame pillow numpy 2>&1)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:www.retrodev.com)",
+      "WebFetch(domain:cdn.emulatorjs.org)",
+      "PowerShell(Head *)",
+      "Skill(run)",
+      "Bash(node -e ' *)",
+      "PowerShell(Get-Item \"C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\dist\\\\DobbyEmula 1.0.0.exe\" 2>&1 | Select-Object Name, @{N='MB';E={[math]::Round\\($_.Length/1MB,1\\)}}, LastWriteTime)",
+      "Bash(npm run *)",
+      "Bash(npm start *)",
+      "PowerShell(ls *)",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\dist\\\\DobbyEmula 1.0.0.exe\"\\).Length / 1MB)",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\assets\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\assets\" })",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\dist\\\\DobbyEmula 1.0.0.exe\"\\).LastWriteTime)",
+      "WebSearch",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(New-Item *)",
+      "Bash(node -e \"const {_electron} = require\\('playwright'\\); console.log\\('playwright ok'\\);\")",
+      "Bash(node verify-graphics.mjs)",
+      "Bash(node verify-rom.mjs)",
+      "PowerShell(if \\(Test-Path \"C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\dist\\\\DobbyEmula 1.0.0.exe\"\\) { Write-Host \"BUILD OK - $\\(\\(\\(Get-Item 'C:\\\\Users\\\\luqit\\\\Desktop\\\\Proyectos Claude\\\\Emulador\\\\dist\\\\DobbyEmula 1.0.0.exe'\\).Length / 1MB\\).ToString\\('F1'\\)\\) MB\" } else { Write-Host \"BUILD FAILED\" })",
+      "PowerShell(npm start *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(node -e \"require\\('@playwright/test'\\)\")",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}

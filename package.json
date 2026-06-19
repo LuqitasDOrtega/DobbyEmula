@@ -1,0 +1,42 @@
+{
+  "name": "dobbyemula",
+  "version": "1.1.0",
+  "description": "DobbyEmula - Emulador para Sega Genesis y GBA/Game Boy",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "author": "RetroStation",
+  "devDependencies": {
+    "7zip-bin": "^5.2.0",
+    "electron": "^31.7.7",
+    "electron-builder": "^26.15.3",
+    "node-7z": "^3.0.0",
+    "playwright": "^1.60.0",
+    "playwright-core": "^1.60.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.1"
+  },
+  "build": {
+    "appId": "com.dobbyemula.app",
+    "productName": "DobbyEmula",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon-preview.png"
+    },
+    "asarUnpack": [
+      "emulatorjs/**"
+    ],
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!emulators/**",
+      "!RetroStation.bat",
+      "!RetroStation.vbs"
+    ]
+  }
+}
