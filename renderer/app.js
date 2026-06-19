@@ -462,8 +462,11 @@ function getRecents() {
   try { return JSON.parse(localStorage.getItem('dobbyrecent') || '[]'); } catch { return []; }
 }
 
+function normalizePath(p) { return p.toLowerCase().replace(/\\/g, '/'); }
+
 function saveToRecent(entry) {
-  let list = getRecents().filter(r => r.fullPath !== entry.fullPath);
+  const norm = normalizePath(entry.fullPath);
+  let list = getRecents().filter(r => normalizePath(r.fullPath) !== norm);
   list.unshift(entry);
   if (list.length > MAX_RECENTS) list = list.slice(0, MAX_RECENTS);
   try { localStorage.setItem('dobbyrecent', JSON.stringify(list)); } catch {}
