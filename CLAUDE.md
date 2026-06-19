@@ -341,6 +341,12 @@ La pantalla vacía de biblioteca también muestra la ruta y extensiones aceptada
 4. En GitHub → Releases → New release → tag `v{version}` → subir el `.exe` → Publish
 5. Los usuarios lo ven automáticamente la próxima vez que abran la app
 
+### Recientes sin duplicados (renderer/app.js)
+`saveToRecent` normaliza el `fullPath` antes de comparar (`toLowerCase + replace \\ → /`) para evitar duplicados por diferencias de barras o mayúsculas en Windows.
+
+### Build limpia .exe viejos automáticamente (package.json)
+Script `prebuild` en package.json borra todos los `.exe` de `dist/` antes de cada build. Solo queda el nuevo.
+
 ## Pendiente / Ideas futuras
 - Verificar que el ícono del .exe aparezca en el explorador después de reiniciar la PC
 - Historial de ROMs recientes
