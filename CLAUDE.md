@@ -79,6 +79,13 @@ npm run build
 ```
 Genera `dist\DobbyEmula 1.0.0.exe` (~80MB portable).
 
+## Git y GitHub
+
+- Repo: **https://github.com/LuqitasDOrtega/DobbyEmula** (público)
+- Remote guardado con token en la URL — para pushear: `git push`
+- `.gitignore` excluye: `ROMs/`, `Saves/`, `node_modules/`, `dist/`
+- Para publicar una actualización: hacer cambios → `git add . && git commit -m "..." && git push` → crear Release en GitHub con el nuevo `.exe`
+
 ## Ícono de la aplicación
 
 ### Ícono del .exe (explorador de Windows)
@@ -235,13 +242,20 @@ El stick analógico izquierdo también funciona como D-pad (threshold 0.5).
 ### Modal de configuración (Configuración → ...)
 Modal con 4 tabs externas:
 - **Controles** — tabs internas por consola (Genesis/GBA/Game Boy/Master System), con Guardar/Restablecer
-- **Joystick** — detección y visualizador de botones del gamepad
-- **Atajos** — tabla de shortcuts + configuración de tecla y velocidad de Fast Forward
+- **Joystick** — detección y visualizador de botones del gamepad (usa `btn.pressed || btn.value > 0.1`)
+- **Atajos** — tabla de shortcuts + configuración de tecla/botón y velocidad de Fast Forward
 - **Gráficos** — relación de aspecto, filtro de imagen, scanlines CRT
 
+**IMPORTANTE**: al abrir el modal con un juego corriendo, el juego se **pausa automáticamente** (`gamePausedByModal = true`) y se reanuda al cerrarlo. Solo pausa si estaba corriendo (no toca el estado si ya estaba pausado).
+
+**Botón Cancelar**: usa clase `modal-cancel-btn` (no `modal-close-btn` que tiene 26×26px fijo). El ✕ del header sigue usando `modal-close-btn`. El JS escucha ambas: `.modal-close-btn, .modal-cancel-btn`.
+
 ### Fast Forward (renderer/app.js)
-- Tecla configurable (default: Tab) — mantener apretada para acelerar
+- **Tecla o botón de joystick** configurable (default: Tab) — mantener apretado para acelerar
 - Velocidad configurable: 2×, 3×, 4×, 8× (default 3×, guardado en localStorage `dobbyFFSpeed`)
+- Storage: `dobbyFFKey` (teclado) o `dobbyFFPadBtn` (índice del botón de gamepad) — mutuamente excluyentes
+- Display: tecla → nombre de tecla, pad → "🎮 L2" etc. usando `GP_BTN_NAMES`
+- Detección analógica: usa `btn.pressed || btn.value > 0.1` para capturar gatillos que no setean `.pressed`
 - API correcta de EJS v4.2.3:
   ```javascript
   gm.functions.setFastForwardRatio(n);  // n = multiplicador
@@ -249,6 +263,7 @@ Modal con 4 tabs externas:
   ```
 - **CRÍTICO**: `toggleFastForward()` sin argumento recibe `undefined`→0→desactiva. Siempre pasar 1 o 0.
 - Keydown/keyup usan `window.addEventListener(..., true)` (capture phase) para interceptar antes de EJS.
+- El pad FF se chequea dentro del loop de `startGamepadBridge()` cada frame.
 - La notificación "Fast-Forward." es dibujada por WASM en el canvas — no es DOM, no se puede estilizar con CSS.
 
 ### Save States por slots (renderer/app.js + main.js)
@@ -310,6 +325,22 @@ Al iniciar la app, `scan-roms` crea las carpetas de ROMs si no existen y genera 
 
 La pantalla vacía de biblioteca también muestra la ruta y extensiones aceptadas dinámicamente.
 
+### Sistema de actualizaciones (main.js + renderer)
+- Al arrancar, espera 5 segundos y consulta `https://api.github.com/repos/LuqitasDOrtega/DobbyEmula/releases/latest`
+- Compara `tag_name` (ej. `v1.2.0`) con `app.getVersion()` usando `isNewerVersion()`
+- Si hay versión nueva: `mainWindow.webContents.send('update-available', { version, url })`
+- El renderer muestra un banner verde en la parte inferior con botón "Descargar" que abre el navegador
+- El usuario descarga el nuevo `.exe` desde GitHub Releases y reemplaza el viejo
+- IPC: `open-external` → `shell.openExternal(url)` | `onUpdateAvailable` en preload
+- Banner: `#update-banner` en index.html, clase `.hidden` para ocultarlo, botón `#update-dismiss-btn` para cerrar
+
+**Flujo para publicar actualización:**
+1. Hacer cambios en el código
+2. Actualizar versión en `package.json`
+3. `git add . && git commit -m "..." && git push`
+4. En GitHub → Releases → New release → tag `v{version}` → subir el `.exe` → Publish
+5. Los usuarios lo ven automáticamente la próxima vez que abran la app
+
 ## Pendiente / Ideas futuras
 - Verificar que el ícono del .exe aparezca en el explorador después de reiniciar la PC
 - Historial de ROMs recientes
@@ -320,8 +351,7 @@ La pantalla vacía de biblioteca también muestra la ruta y extensiones aceptada
 ## Expansión multiplataforma (planificado)
 
 ### Colaboración con Git + GitHub
-- El proyecto aún **no tiene repo Git** — hay que inicializarlo
-- `.gitignore` debe excluir: `ROMs/`, `Saves/`, `node_modules/`, `dist/`
+- Repo ya inicializado en **https://github.com/LuqitasDOrtega/DobbyEmula**
 - Cada colaborador trabaja en su propia rama y hace merge
 
 ### Mac (colaborador externo)
@@ -390,6 +420,23 @@ $base = "https://cdn.emulatorjs.org/4.2.3/data"; $dir = ".\emulatorjs"
 ### 12. Save states en AppData no portables
 **Causa**: `EJS_defaultOptions: { 'save-state-location': 'browser' }` guardaba en localStorage de Chromium.
 **Solución**: sistema propio con IPC + archivos en `Saves/` al lado del `.exe`. API: `gm.getState()` / `gm.loadState(uint8)`.
+
+## Problemas conocidos resueltos (sesión 2026-06-18)
+
+### 13. Botón "Cancelar" del modal aplastado
+**Causa**: clase `modal-close-btn` tiene `width: 26px; height: 26px` fijo (pensado para el ✕ del header).
+**Solución**: cambiar a `modal-cancel-btn` en el HTML del footer. El JS escucha `.modal-close-btn, .modal-cancel-btn`.
+
+### 14. Fast Forward solo funcionaba con teclado
+**Solución**: detector de tecla/botón ampliado para escuchar gamepad durante la asignación (polling cada 50ms). `ffPadBtn` guardado en `dobbyFFPadBtn` en localStorage. Bridge chequea el botón cada frame.
+
+### 15. Gatillos analógicos (L2/R2) no detectados
+**Causa**: algunos joysticks setean `btn.value` pero no `btn.pressed` para los gatillos.
+**Solución**: usar `btn.pressed || btn.value > 0.1` en el visualizador de Joystick y en el detector del FF.
+
+### 16. Joystick movía el personaje con la config abierta
+**Causa**: el gamepad bridge seguía corriendo mientras el modal estaba visible.
+**Solución**: `openSettingsModal()` pausa EJS si el juego está corriendo (`gamePausedByModal = true`). `closeControlsModal()` lo reanuda si fue pausado por el modal.
 
 ## Testing automatizado
 Playwright con `_electron` API. Inyectar ROM via `startGame()`, inspeccionar estado con `page.evaluate()`. No hay test-driver permanente — los tests se escriben inline y se borran después.
