@@ -12,7 +12,7 @@ Frontend de emulación de escritorio para Windows (y próximamente Mac y Android
 ```
 Emulador/
 ├── dist/
-│   ├── DobbyEmula 1.0.0.exe     ← EXE portable final
+│   ├── DobbyEmula 1.1.2.exe     ← EXE portable final
 │   ├── Icono DobbyEmula.png     ← Imagen fuente del ícono (la del usuario)
 │   ├── ROMs/                    ← ROMs del usuario (deben estar AL LADO del .exe)
 │   │   ├── Sega Genesis/
@@ -20,7 +20,9 @@ Emulador/
 │   │   ├── Master System/
 │   │   ├── Game Boy Advance/
 │   │   ├── Game Boy Color/
-│   │   └── Game Boy/
+│   │   ├── Game Boy/
+│   │   ├── Atari 2600/
+│   │   └── Nintendo DS/
 │   └── Saves/                   ← Save states portables (creada automáticamente)
 │       ├── genesis/
 │       ├── gba/
@@ -39,14 +41,19 @@ Emulador/
 │       ├── genesis_plus_gx-wasm.data / genesis_plus_gx-legacy-wasm.data
 │       ├── mgba-wasm.data / mgba-legacy-wasm.data
 │       ├── gambatte-wasm.data / gambatte-legacy-wasm.data
-│       └── smsplus-wasm.data / smsplus-legacy-wasm.data
+│       ├── smsplus-wasm.data / smsplus-legacy-wasm.data
+│       ├── snes9x-wasm.data / snes9x-legacy-wasm.data
+│       ├── stella2014-wasm.data / stella2014-legacy-wasm.data
+│       └── desmume-wasm.data / desmume-legacy-wasm.data
 ├── ROMs/                         ← ROMs en desarrollo
 │   ├── Sega Genesis/             (.md .gen .smd .bin .68k)
 │   ├── Super Nintendo/           (.sfc .smc .snes)
 │   ├── Master System/            (.sms .gg)
 │   ├── Game Boy Advance/         (.gba)
 │   ├── Game Boy Color/           (.gbc)
-│   └── Game Boy/                 (.gb)
+│   ├── Game Boy/                 (.gb)
+│   ├── Atari 2600/               (.a26 .bin .rom)
+│   └── Nintendo DS/              (.nds)
 ├── Saves/                        ← Save states en desarrollo
 │   ├── genesis/
 │   ├── gba/
@@ -77,7 +84,7 @@ Expand-Archive -Path $zip -DestinationPath "node_modules\electron\dist" -Force
 ```
 npm run build
 ```
-Genera `dist\DobbyEmula 1.0.0.exe` (~80MB portable).
+Genera `dist\DobbyEmula 1.1.2.exe` (~80MB portable).
 
 ## Git y GitHub
 
@@ -164,13 +171,13 @@ function getSavesDir() {
 
 ### Escaneo de ROMs (main.js → renderer)
 - `scan-roms` IPC: escanea las carpetas, devuelve `{ id, core, name, folder, exts, roms[] }[]`
-- También **crea las subcarpetas** de ROMs si no existen y genera `_Léeme.txt` en cada una (primera vez)
+- También **crea las subcarpetas** de ROMs si no existen y **regenera `_Léeme.txt` en cada una siempre** (para reflejar extensiones actuales)
 - `open-rom-by-path` IPC: carga una ROM por path sin diálogo
-- `CONSOLES` array en main.js define las 6 consolas con sus carpetas y extensiones
+- `CONSOLES` array en main.js define las 8 consolas con sus carpetas y extensiones
 
 ### Cover art (renderer/app.js)
 - Fuente: **libretro-thumbnails** en GitHub (sin API key, igual que RetroArch)
-- Sistemas: `Sega_-_Mega_Drive_-_Genesis`, `Sega_-_Master_System_-_Mark_III`, `Nintendo_-_Game_Boy_Advance`, `Nintendo_-_Game_Boy_Color`, `Nintendo_-_Game_Boy`
+- Sistemas: `Sega_-_Mega_Drive_-_Genesis`, `Sega_-_Master_System_-_Mark_III`, `Nintendo_-_Game_Boy_Advance`, `Nintendo_-_Game_Boy_Color`, `Nintendo_-_Game_Boy`, `Atari_-_2600`, `Nintendo_-_Nintendo_DS`
 - Cache: localStorage `dobbycover_{consoleId}_{romName}` (base64 dataURL)
 - Si no hay cover → placeholder con las 2 primeras letras del nombre
 - Botón `✎` en hover → imagen propia (mismo cache key)
@@ -196,14 +203,26 @@ function getSavesDir() {
 - **Filtro**: botones "Todos" / "★ Favoritos" en `#filter-btns`.
 - `applyLibraryFilter()` aplica búsqueda + filtro simultáneamente sin re-renderizar el grid.
 
-### Mapeo extensión → core EmulatorJS
-| Extensión | Core |
-|-----------|------|
-| `.gba` | `mgba` |
-| `.gb`, `.gbc` | `gambatte` |
-| `.md`, `.gen`, `.smd`, `.bin`, `.68k` | `genesis_plus_gx` |
-| `.sms`, `.gg` | `smsplus` |
-| `.sfc`, `.smc`, `.snes` | `snes9x` |
+### Mapeo extensión → sistema EmulatorJS
+| Extensión | Sistema EJS | Core real |
+|-----------|-------------|-----------|
+| `.gba` | `gba` | mgba |
+| `.gb`, `.gbc` | `gb` | gambatte |
+| `.md`, `.gen`, `.smd`, `.bin`, `.68k` | `genesis_plus_gx` | genesis_plus_gx |
+| `.sms`, `.gg` | `smsplus` | smsplus |
+| `.sfc`, `.smc`, `.snes` | `snes9x` | snes9x |
+| `.a26`, `.bin`, `.rom` | `atari2600` | stella2014 |
+| `.nds` | `nds` | desmume |
+
+**CRÍTICO — EJS espera el nombre del SISTEMA, no del core:**
+- `window.EJS_core` debe ser el sistema (`atari2600`, `nds`, `gba`) — EJS elige el core internamente
+- Los sistemas genéricos como `genesis_plus_gx` también funcionan porque EJS los acepta como nombre directo
+- El mapa completo de sistemas está en `emulator.min.js`: `{atari2600:["stella2014"], nds:["melonds","desmume","desmume2015"], gba:["mgba"], ...}`
+
+**CRÍTICO — Extensiones ambiguas (`.bin`):**
+- `.bin` existe en Genesis Y Atari 2600 — `CORE_MAP` solo puede mapear a uno
+- Solución: `openRomByPath(fullPath, consoleId)` en renderer usa `con?.core` de `romLibrary` si tiene `consoleId`, ignorando el CORE_MAP para ese caso
+- Esto funciona porque los clicks de librería siempre pasan el `consoleId` correcto
 
 ### Sistema de controles por consola (renderer/app.js)
 `CORE_PROFILES` define botones, índices libretro y teclas por defecto. Se guarda en `dobbyControls_${core}` en localStorage.
@@ -241,7 +260,7 @@ El stick analógico izquierdo también funciona como D-pad (threshold 0.5).
 
 ### Modal de configuración (Configuración → ...)
 Modal con 4 tabs externas:
-- **Controles** — tabs internas por consola (Genesis/GBA/Game Boy/Master System), con Guardar/Restablecer
+- **Controles** — tabs internas por consola (Genesis/SNES/GBA/Game Boy/Master System/Atari 2600/Nintendo DS), con Guardar/Restablecer
 - **Joystick** — detección y visualizador de botones del gamepad (usa `btn.pressed || btn.value > 0.1`)
 - **Atajos** — tabla de shortcuts + configuración de tecla/botón y velocidad de Fast Forward
 - **Gráficos** — relación de aspecto, filtro de imagen, scanlines CRT
@@ -350,9 +369,9 @@ Script `prebuild` en package.json borra todos los `.exe` de `dist/` antes de cad
 ## Pendiente / Ideas futuras
 - Verificar que el ícono del .exe aparezca en el explorador después de reiniciar la PC
 - Historial de ROMs recientes
-- Soporte SNES (snes9x core disponible en EmulatorJS — ya está en CONSOLES y CORE_MAP)
 - Soporte 6 botones Genesis
 - Más opciones de gráficos
+- NES (fceumm/nestopia), N64 (mupen64plus), PSX (pcsx_rearmed) — cores disponibles en EJS CDN
 
 ## Expansión multiplataforma (planificado)
 
@@ -427,7 +446,7 @@ $base = "https://cdn.emulatorjs.org/4.2.3/data"; $dir = ".\emulatorjs"
 **Causa**: `EJS_defaultOptions: { 'save-state-location': 'browser' }` guardaba en localStorage de Chromium.
 **Solución**: sistema propio con IPC + archivos en `Saves/` al lado del `.exe`. API: `gm.getState()` / `gm.loadState(uint8)`.
 
-## Problemas conocidos resueltos (sesión 2026-06-18)
+## Problemas conocidos resueltos (sesión 2026-06-22)
 
 ### 13. Botón "Cancelar" del modal aplastado
 **Causa**: clase `modal-close-btn` tiene `width: 26px; height: 26px` fijo (pensado para el ✕ del header).
@@ -443,6 +462,23 @@ $base = "https://cdn.emulatorjs.org/4.2.3/data"; $dir = ".\emulatorjs"
 ### 16. Joystick movía el personaje con la config abierta
 **Causa**: el gamepad bridge seguía corriendo mientras el modal estaba visible.
 **Solución**: `openSettingsModal()` pausa EJS si el juego está corriendo (`gamePausedByModal = true`). `closeControlsModal()` lo reanuda si fue pausado por el modal.
+
+## Problemas conocidos resueltos (sesión 2026-06-22)
+
+### 17. Banner de actualización falso positivo
+**Causa**: tag de GitHub era `v1.1.1` pero `app.getVersion()` devolvía `1.1.0` — siempre detectaba "versión nueva".
+**Solución**: alinear la versión en `package.json` con el tag de GitHub. Regla: siempre buildear DESPUÉS de cambiar la versión.
+
+### 18. Atari 2600 / Nintendo DS cargaban el core de Genesis
+**Causa A**: `window.EJS_core` estaba seteado al nombre del core (`stella2014`, `desmume`) en lugar del nombre del sistema (`atari2600`, `nds`). EJS no reconocía esos valores y caía al fallback (genesis_plus_gx).
+**Solución A**: el campo `core` en CONSOLES y CORE_MAP debe ser el nombre de sistema EJS (`atari2600`, `nds`), no el core interno.
+
+**Causa B**: para `.bin` el CORE_MAP devolvía `genesis_plus_gx`, incluso cuando la ROM venía de la carpeta Atari 2600.
+**Solución B**: `openRomByPath(fullPath, consoleId)` en el renderer sobreescribe el core con `con?.core` de `romLibrary` cuando tiene `consoleId`. Los clicks de librería siempre pasan el consoleId correcto.
+
+### 19. _Léeme.txt no se actualizaba con nuevas extensiones
+**Causa**: la creación usaba `if (!fs.existsSync(readme))` — no regeneraba si ya existía.
+**Solución**: eliminado el check, ahora se sobreescribe siempre al abrir la app.
 
 ## Testing automatizado
 Playwright con `_electron` API. Inyectar ROM via `startGame()`, inspeccionar estado con `page.evaluate()`. No hay test-driver permanente — los tests se escriben inline y se borran después.
