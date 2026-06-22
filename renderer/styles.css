@@ -269,6 +269,14 @@ body { display: flex; flex-direction: column; }
 .console-card[data-console-id="gb"] .badge-top,
 .console-card[data-console-id="gb"] .badge-bottom          { color: #8bac0f; }
 
+.console-card[data-console-id="atari2600"] .console-art    { background: linear-gradient(135deg,#1a0f00,#3d2200); }
+.console-card[data-console-id="atari2600"] .badge-top,
+.console-card[data-console-id="atari2600"] .badge-bottom   { color: #ff8c00; }
+
+.console-card[data-console-id="nds"] .console-art          { background: linear-gradient(135deg,#0a0a1a,#1a1a3a); }
+.console-card[data-console-id="nds"] .badge-top            { color: rgba(255,255,255,.5); }
+.console-card[data-console-id="nds"] .badge-bottom         { color: #e8e8ff; }
+
 .console-info {
   padding: 10px 13px 12px;
   background: var(--bg2);

@@ -140,6 +140,9 @@ const CORE_MAP = {
   '.sfc': 'snes9x',
   '.smc': 'snes9x',
   '.snes':'snes9x',
+  '.a26': 'atari2600',
+  '.rom': 'atari2600',
+  '.nds': 'nds',
 };
 
 const CONSOLES = [
@@ -149,6 +152,8 @@ const CONSOLES = [
   { id: 'gba',          core: 'mgba',             name: 'Game Boy Advance', folder: 'Game Boy Advance', exts: ['.gba'] },
   { id: 'gbc',          core: 'gambatte',         name: 'Game Boy Color',   folder: 'Game Boy Color',   exts: ['.gbc'] },
   { id: 'gb',           core: 'gambatte',         name: 'Game Boy',         folder: 'Game Boy',         exts: ['.gb'] },
+  { id: 'atari2600',    core: 'atari2600',        name: 'Atari 2600',       folder: 'Atari 2600',       exts: ['.a26','.bin','.rom'] },
+  { id: 'nds',          core: 'nds',              name: 'Nintendo DS',      folder: 'Nintendo DS',      exts: ['.nds'] },
 ];
 
 function getRomsDir() {
@@ -185,7 +190,7 @@ ipcMain.handle('scan-roms', () => {
     try {
       fs.mkdirSync(dir, { recursive: true });
       const readme = path.join(dir, '_Léeme.txt');
-      if (!fs.existsSync(readme)) {
+      {
         fs.writeFileSync(readme,
           `${con.name}\r\n` +
           `${'─'.repeat(con.name.length)}\r\n` +

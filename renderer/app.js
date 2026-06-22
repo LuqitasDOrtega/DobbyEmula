@@ -100,12 +100,14 @@ function applyLibraryFilter() {
 
 // ── Console metadata ──────────────────────────────────────────────────────────
 const CONSOLE_META = {
-  genesis:      { topLine: 'SEGA',     bottomLine: 'GENESIS'  },
-  snes:         { topLine: 'SUPER',    bottomLine: 'NINTENDO' },
-  mastersystem: { topLine: 'MASTER',   bottomLine: 'SYSTEM'   },
-  gba:          { topLine: 'GAME BOY', bottomLine: 'ADVANCE'  },
-  gbc:          { topLine: 'GAME BOY', bottomLine: 'COLOR'    },
-  gb:           { topLine: 'GAME BOY', bottomLine: ''         },
+  genesis:      { topLine: 'SEGA',      bottomLine: 'GENESIS'  },
+  snes:         { topLine: 'SUPER',     bottomLine: 'NINTENDO' },
+  mastersystem: { topLine: 'MASTER',    bottomLine: 'SYSTEM'   },
+  gba:          { topLine: 'GAME BOY',  bottomLine: 'ADVANCE'  },
+  gbc:          { topLine: 'GAME BOY',  bottomLine: 'COLOR'    },
+  gb:           { topLine: 'GAME BOY',  bottomLine: ''         },
+  atari2600:    { topLine: 'ATARI',     bottomLine: '2600'     },
+  nds:          { topLine: 'NINTENDO',  bottomLine: 'DS'       },
 };
 
 // ── Cover art via libretro-thumbnails ─────────────────────────────────────────
@@ -116,6 +118,8 @@ const LIBRETRO_SYSTEMS = {
   gba:          'Nintendo_-_Game_Boy_Advance',
   gbc:          'Nintendo_-_Game_Boy_Color',
   gb:           'Nintendo_-_Game_Boy',
+  atari2600:    'Atari_-_2600',
+  nds:          'Nintendo_-_Nintendo_DS',
 };
 
 // Limit concurrent cover fetches
@@ -452,6 +456,8 @@ const EXT_TO_CONSOLE_ID = {
   '.sfc': 'snes', '.smc': 'snes', '.snes': 'snes',
   '.md': 'genesis', '.gen': 'genesis', '.smd': 'genesis', '.bin': 'genesis', '.68k': 'genesis',
   '.sms': 'mastersystem', '.gg': 'mastersystem',
+  '.a26': 'atari2600', '.rom': 'atari2600',
+  '.nds': 'nds',
   '.gba': 'gba',
   '.gbc': 'gbc',
   '.gb':  'gb',
@@ -801,6 +807,35 @@ const CORE_PROFILES = {
       { label: 'Start / Pausa', idx: 3, defaultKey: 'Enter'      },
     ],
   },
+  atari2600: {
+    name: 'Atari 2600',
+    buttons: [
+      { label: 'Arriba',    idx: 4, defaultKey: 'ArrowUp'    },
+      { label: 'Abajo',     idx: 5, defaultKey: 'ArrowDown'  },
+      { label: 'Izquierda', idx: 6, defaultKey: 'ArrowLeft'  },
+      { label: 'Derecha',   idx: 7, defaultKey: 'ArrowRight' },
+      { label: 'Fuego',     idx: 0, defaultKey: 'z'          },
+      { label: 'Select',    idx: 2, defaultKey: 'Backspace'  },
+      { label: 'Reset',     idx: 3, defaultKey: 'Enter'      },
+    ],
+  },
+  nds: {
+    name: 'Nintendo DS',
+    buttons: [
+      { label: 'Arriba',    idx: 4,  defaultKey: 'ArrowUp'    },
+      { label: 'Abajo',     idx: 5,  defaultKey: 'ArrowDown'  },
+      { label: 'Izquierda', idx: 6,  defaultKey: 'ArrowLeft'  },
+      { label: 'Derecha',   idx: 7,  defaultKey: 'ArrowRight' },
+      { label: 'Botón A',   idx: 8,  defaultKey: 'x'          },
+      { label: 'Botón B',   idx: 0,  defaultKey: 'z'          },
+      { label: 'Botón X',   idx: 9,  defaultKey: 's'          },
+      { label: 'Botón Y',   idx: 1,  defaultKey: 'a'          },
+      { label: 'L',         idx: 10, defaultKey: 'q'          },
+      { label: 'R',         idx: 11, defaultKey: 'w'          },
+      { label: 'Start',     idx: 3,  defaultKey: 'Enter'      },
+      { label: 'Select',    idx: 2,  defaultKey: 'Backspace'  },
+    ],
+  },
 };
 
 // ── Key storage ───────────────────────────────────────────────────────────────
@@ -878,14 +913,15 @@ async function openRomByPath(fullPath, consoleId) {
   if (!rom || rom.error) { statusLeft.textContent = '⚠ ' + (rom?.error || 'Error al cargar'); return; }
   const resolvedConsoleId = consoleId || EXT_TO_CONSOLE_ID[rom.ext] || '';
   const con = romLibrary.find(c => c.id === resolvedConsoleId);
+  const finalCore = con?.core || rom.core;
   saveToRecent({
     name:        rom.name,
     fullPath,
     consoleId:   resolvedConsoleId,
-    consoleName: con?.name || CORE_PROFILES[rom.core]?.name || '',
-    core:        rom.core,
+    consoleName: con?.name || CORE_PROFILES[finalCore]?.name || '',
+    core:        finalCore,
   });
-  startGame({ ...rom, consoleId: resolvedConsoleId });
+  startGame({ ...rom, core: finalCore, consoleId: resolvedConsoleId });
 }
 
 function closeRom() {
@@ -1002,6 +1038,8 @@ function coreLabel(core) {
     gambatte:         'Game Boy · Gambatte',
     genesis_plus_gx:  'Sega Genesis · Genesis Plus GX',
     smsplus:          'Master System · SMS Plus',
+    atari2600:        'Atari 2600 · Stella',
+    nds:              'Nintendo DS · DeSmuME',
   }[core] || core;
 }
 
