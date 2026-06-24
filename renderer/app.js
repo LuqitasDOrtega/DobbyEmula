@@ -36,6 +36,7 @@ let coverObserver       = null;  // IntersectionObserver for lazy cover loading
 const coverLoadFns      = new WeakMap();
 let librarySearchQuery  = '';
 let libraryShowFavsOnly = false;
+let librarySortOrder    = localStorage.getItem('dobbySortOrder') || 'az';
 
 const screenHome    = document.getElementById('screen-home');
 const screenLibrary = document.getElementById('screen-library');
@@ -108,6 +109,7 @@ const CONSOLE_META = {
   gb:           { topLine: 'GAME BOY',  bottomLine: ''         },
   atari2600:    { topLine: 'ATARI',     bottomLine: '2600'     },
   nds:          { topLine: 'NINTENDO',  bottomLine: 'DS'       },
+  psx:          { topLine: 'PLAY',      bottomLine: 'STATION'  },
 };
 
 // ── Cover art via libretro-thumbnails ─────────────────────────────────────────
@@ -120,6 +122,7 @@ const LIBRETRO_SYSTEMS = {
   gb:           'Nintendo_-_Game_Boy',
   atari2600:    'Atari_-_2600',
   nds:          'Nintendo_-_Nintendo_DS',
+  psx:          'Sony_-_PlayStation',
 };
 
 // Limit concurrent cover fetches
@@ -458,6 +461,7 @@ const EXT_TO_CONSOLE_ID = {
   '.sms': 'mastersystem', '.gg': 'mastersystem',
   '.a26': 'atari2600', '.rom': 'atari2600',
   '.nds': 'nds',
+  '.cue': 'psx', '.iso': 'psx', '.chd': 'psx', '.pbp': 'psx', '.img': 'psx',
   '.gba': 'gba',
   '.gbc': 'gbc',
   '.gb':  'gb',
@@ -636,7 +640,17 @@ function renderLibrary(consoleId) {
     }
   }, { rootMargin: '300px' });
 
-  for (const rom of con.roms) {
+  const sortedRoms = [...con.roms].sort((a, b) => {
+    if (librarySortOrder === 'za') return b.name.localeCompare(a.name);
+    if (librarySortOrder === 'fav') {
+      const fa = isFav(consoleId, a.name) ? 0 : 1;
+      const fb = isFav(consoleId, b.name) ? 0 : 1;
+      return fa !== fb ? fa - fb : a.name.localeCompare(b.name);
+    }
+    return a.name.localeCompare(b.name); // az (default)
+  });
+
+  for (const rom of sortedRoms) {
     const card = document.createElement('div');
     card.className = 'rom-card';
     card.dataset.romName = rom.name;
@@ -836,6 +850,25 @@ const CORE_PROFILES = {
       { label: 'Select',    idx: 2,  defaultKey: 'Backspace'  },
     ],
   },
+  psx: {
+    name: 'PlayStation',
+    buttons: [
+      { label: 'Arriba',    idx: 4,  defaultKey: 'ArrowUp'    },
+      { label: 'Abajo',     idx: 5,  defaultKey: 'ArrowDown'  },
+      { label: 'Izquierda', idx: 6,  defaultKey: 'ArrowLeft'  },
+      { label: 'Derecha',   idx: 7,  defaultKey: 'ArrowRight' },
+      { label: '× Cruz',    idx: 0,  defaultKey: 'z'          },
+      { label: '○ Círculo', idx: 8,  defaultKey: 'x'          },
+      { label: '□ Cuadro',  idx: 1,  defaultKey: 'a'          },
+      { label: '△ Triáng.', idx: 9,  defaultKey: 's'          },
+      { label: 'L1',        idx: 10, defaultKey: 'q'          },
+      { label: 'R1',        idx: 11, defaultKey: 'w'          },
+      { label: 'L2',        idx: 12, defaultKey: 'e'          },
+      { label: 'R2',        idx: 13, defaultKey: 'r'          },
+      { label: 'Start',     idx: 3,  defaultKey: 'Enter'      },
+      { label: 'Select',    idx: 2,  defaultKey: 'Backspace'  },
+    ],
+  },
 };
 
 // ── Key storage ───────────────────────────────────────────────────────────────
@@ -861,6 +894,37 @@ function saveCoreKeys(core, keys) {
 let allCoreKeys = {};
 for (const core of Object.keys(CORE_PROFILES)) allCoreKeys[core] = loadCoreKeys(core);
 let workingCoreKeys = {};
+
+// ── Player 2 controls ─────────────────────────────────────────────────────────
+const P2_CORES = new Set(['genesis_plus_gx', 'snes9x', 'smsplus', 'psx']);
+
+const P2_DEFAULT_KEYS = {
+  0: 'u', 1: 'h', 2: '-', 3: '=',
+  4: 'i', 5: 'k', 6: 'j', 7: 'l',
+  8: 'o', 9: 'n', 10: 'y', 11: 'p',
+  12: 'g', 13: '[',
+};
+
+function loadCoreKeys2(core) {
+  const profile = CORE_PROFILES[core];
+  if (!profile || !P2_CORES.has(core)) return {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(`dobbyControls2_${core}`) || '{}');
+    const result = {};
+    for (const btn of profile.buttons) result[btn.idx] = saved[btn.idx] ?? P2_DEFAULT_KEYS[btn.idx] ?? btn.defaultKey;
+    return result;
+  } catch {
+    const result = {};
+    for (const btn of profile.buttons) result[btn.idx] = P2_DEFAULT_KEYS[btn.idx] ?? btn.defaultKey;
+    return result;
+  }
+}
+function saveCoreKeys2(core, keys) { localStorage.setItem(`dobbyControls2_${core}`, JSON.stringify(keys)); }
+
+let allCoreKeys2 = {};
+for (const core of Object.keys(CORE_PROFILES)) allCoreKeys2[core] = loadCoreKeys2(core);
+let workingCoreKeys2 = {};
+let currentPlayer = 1;
 
 // ── Key utilities ─────────────────────────────────────────────────────────────
 function keyNameToKeyCode(key) {
@@ -973,6 +1037,17 @@ function patchControlsWhenReady(core) {
         const code = keyNameToKeyCode(keyName);
         if (!code) continue;
         c[Number(idxStr)] = { ...(c[Number(idxStr)] || {}), value: code };
+      }
+    }
+    if (P2_CORES.has(core)) {
+      const c2 = emu.controls?.[1];
+      if (c2) {
+        const keys2 = allCoreKeys2[core] || {};
+        for (const [idxStr, keyName] of Object.entries(keys2)) {
+          const code = keyNameToKeyCode(keyName);
+          if (!code) continue;
+          c2[Number(idxStr)] = { ...(c2[Number(idxStr)] || {}), value: code };
+        }
       }
     }
 
@@ -1176,7 +1251,7 @@ function switchOuterTab(name) {
   document.getElementById('btn-controls-reset').classList.toggle('hidden', !isControls);
   document.getElementById('btn-controls-save').classList.toggle('hidden', !isControls);
 
-  if (name === 'joystick') { updateGamepadStatus(); startGamepadPoll(); }
+  if (name === 'joystick') { updateGamepadStatus(); startGamepadPoll(); renderGpadRemapper(); }
   else stopGamepadPoll();
   if (name === 'graphics')  initGraphicsTab();
   if (name === 'shortcuts') initShortcutsTab();
@@ -1186,10 +1261,17 @@ let gamePausedByModal = false;
 
 function openSettingsModal(outerTab = 'controls', consoleTab = null) {
   if (listeningBtn) cancelListen();
-  workingCoreKeys = {};
-  for (const core of Object.keys(CORE_PROFILES)) workingCoreKeys[core] = { ...allCoreKeys[core] };
+  currentPlayer = 1;
+  workingCoreKeys  = {};
+  workingCoreKeys2 = {};
+  for (const core of Object.keys(CORE_PROFILES)) {
+    workingCoreKeys[core]  = { ...allCoreKeys[core] };
+    workingCoreKeys2[core] = { ...allCoreKeys2[core] };
+  }
   switchOuterTab(outerTab);
   if (outerTab === 'controls') {
+    document.querySelectorAll('.player-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+    updateConsoleTabsVisibility();
     const startTab = consoleTab || activeCore || 'genesis_plus_gx';
     switchConsoleTab(startTab);
     updateConsoleTabs();
@@ -1211,6 +1293,7 @@ function openControlsModal(consoleTab = null) { openSettingsModal('controls', co
 
 function closeControlsModal() {
   if (listeningBtn) cancelListen();
+  cancelGpadRemap();
   modal.classList.add('hidden');
   stopGamepadPoll();
   // Reanudar solo si lo pausamos nosotros al abrir
@@ -1225,6 +1308,10 @@ function saveControls() {
   for (const core of Object.keys(CORE_PROFILES)) {
     allCoreKeys[core] = { ...workingCoreKeys[core] };
     saveCoreKeys(core, allCoreKeys[core]);
+    if (P2_CORES.has(core)) {
+      allCoreKeys2[core] = { ...workingCoreKeys2[core] };
+      saveCoreKeys2(core, allCoreKeys2[core]);
+    }
   }
   if (gameActive && activeCore && window.EJS_emulator?.started) {
     const c = window.EJS_emulator.controls?.[0];
@@ -1235,6 +1322,16 @@ function saveControls() {
         c[Number(idxStr)] = { ...(c[Number(idxStr)] || {}), value: code };
       }
     }
+    if (P2_CORES.has(activeCore)) {
+      const c2 = window.EJS_emulator.controls?.[1];
+      if (c2) {
+        for (const [idxStr, keyName] of Object.entries(allCoreKeys2[activeCore])) {
+          const code = keyNameToKeyCode(keyName);
+          if (!code) continue;
+          c2[Number(idxStr)] = { ...(c2[Number(idxStr)] || {}), value: code };
+        }
+      }
+    }
   }
   closeControlsModal();
   statusLeft.textContent = 'Controles guardados';
@@ -1242,8 +1339,14 @@ function saveControls() {
 
 function resetConsoleKeys() {
   if (!modalConsole || !CORE_PROFILES[modalConsole]) return;
-  workingCoreKeys[modalConsole] = {};
-  for (const btn of CORE_PROFILES[modalConsole].buttons) workingCoreKeys[modalConsole][btn.idx] = btn.defaultKey;
+  if (currentPlayer === 2) {
+    workingCoreKeys2[modalConsole] = {};
+    for (const btn of CORE_PROFILES[modalConsole].buttons)
+      workingCoreKeys2[modalConsole][btn.idx] = P2_DEFAULT_KEYS[btn.idx] ?? btn.defaultKey;
+  } else {
+    workingCoreKeys[modalConsole] = {};
+    for (const btn of CORE_PROFILES[modalConsole].buttons) workingCoreKeys[modalConsole][btn.idx] = btn.defaultKey;
+  }
   renderKeysGrid(modalConsole);
 }
 
@@ -1266,8 +1369,9 @@ function renderKeysGrid(core) {
   const profile = CORE_PROFILES[core];
   grid.innerHTML = '';
   if (!profile) return;
+  const keysMap = currentPlayer === 2 ? workingCoreKeys2 : workingCoreKeys;
   for (const btn of profile.buttons) {
-    const keyName = workingCoreKeys[core]?.[btn.idx] ?? btn.defaultKey;
+    const keyName = keysMap[core]?.[btn.idx] ?? (currentPlayer === 2 ? P2_DEFAULT_KEYS[btn.idx] : undefined) ?? btn.defaultKey;
     const row     = document.createElement('div');
     row.className = 'key-row';
     const lbl     = document.createElement('span');
@@ -1299,7 +1403,8 @@ function cancelListen() {
   if (!listeningBtn) return;
   document.removeEventListener('keydown', onKeyCapture);
   listeningBtn.classList.remove('listening');
-  const keyName = workingCoreKeys[listeningCore]?.[listeningIdx] ?? '';
+  const km = currentPlayer === 2 ? workingCoreKeys2 : workingCoreKeys;
+  const keyName = km[listeningCore]?.[listeningIdx] ?? '';
   listeningBtn.textContent = formatKey(keyName);
   listeningBtn  = null;
   listeningCore = null;
@@ -1310,7 +1415,8 @@ function onKeyCapture(e) {
   e.preventDefault();
   if (e.key === 'Escape') { cancelListen(); return; }
   if (listeningCore !== null && listeningIdx !== null) {
-    workingCoreKeys[listeningCore][listeningIdx] = e.key;
+    const km = currentPlayer === 2 ? workingCoreKeys2 : workingCoreKeys;
+    km[listeningCore][listeningIdx] = e.key;
     listeningBtn.textContent = formatKey(e.key);
   }
   listeningBtn.classList.remove('listening');
@@ -1326,25 +1432,149 @@ document.getElementById('btn-controls-reset').addEventListener('click', resetCon
 document.querySelectorAll('#console-tabs .tab').forEach(tab => {
   tab.addEventListener('click', () => switchConsoleTab(tab.dataset.console));
 });
+
+function updateConsoleTabsVisibility() {
+  document.querySelectorAll('#console-tabs .tab').forEach(tab => {
+    tab.classList.toggle('hidden', currentPlayer === 2 && !P2_CORES.has(tab.dataset.console));
+  });
+  const active = document.querySelector('#console-tabs .tab.active');
+  if (active?.classList.contains('hidden')) {
+    const first = document.querySelector('#console-tabs .tab:not(.hidden)');
+    if (first) switchConsoleTab(first.dataset.console);
+  }
+}
+
+document.querySelectorAll('.player-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (listeningBtn) cancelListen();
+    document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPlayer = Number(btn.dataset.player);
+    updateConsoleTabsVisibility();
+    if (modalConsole) renderKeysGrid(modalConsole);
+  });
+});
 document.querySelectorAll('.outer-tab').forEach(tab => {
   tab.addEventListener('click', () => switchOuterTab(tab.dataset.outer));
 });
 
 // ── Gamepad → keyboard bridge (makes joystick work in EmulatorJS) ────────────
-// Standard Web Gamepad API button index → libretro joypad index
-const GAMEPAD_TO_LIBRETRO = {
-  0:  8,   // A / Cross     → libretro A  (GBA A, Genesis C, GB A)
-  1:  0,   // B / Circle    → libretro B  (GBA B, Genesis B, GB B)
-  2:  1,   // X / Square    → libretro Y  (Genesis A)
-  4:  10,  // L1            → libretro L
-  5:  11,  // R1            → libretro R
-  8:  2,   // Select / Back → libretro Select
-  9:  3,   // Start         → libretro Start
-  12: 4,   // D-pad Up      → libretro Up
-  13: 5,   // D-pad Down    → libretro Down
-  14: 6,   // D-pad Left    → libretro Left
-  15: 7,   // D-pad Right   → libretro Right
+// Default: Standard Web Gamepad API button index → libretro joypad index
+const DEFAULT_GPAD_MAP = {
+  0:  8,   // A / Cross      → libretro A
+  1:  0,   // B / Circle     → libretro B
+  2:  1,   // X / Square     → libretro Y
+  3:  9,   // Y / Triangle   → libretro X
+  4:  10,  // LB / L1        → libretro L
+  5:  11,  // RB / R1        → libretro R
+  6:  12,  // LT / L2        → libretro L2
+  7:  13,  // RT / R2        → libretro R2
+  8:  2,   // Select / Back  → libretro Select
+  9:  3,   // Start          → libretro Start
+  12: 4,   // D-pad Up       → libretro Up
+  13: 5,   // D-pad Down     → libretro Down
+  14: 6,   // D-pad Left     → libretro Left
+  15: 7,   // D-pad Right    → libretro Right
 };
+
+function loadGpadMap() {
+  try { const s = localStorage.getItem('dobbyGpadMap'); if (s) return JSON.parse(s); } catch {}
+  return { ...DEFAULT_GPAD_MAP };
+}
+function saveGpadMap() { localStorage.setItem('dobbyGpadMap', JSON.stringify(gpadMap)); }
+
+let gpadMap = loadGpadMap();
+
+// Actions shown in the remapper UI (D-pad excluded — always fixed)
+const GPAD_REMAP_ACTIONS = [
+  { label: 'B  /  × Cruz',        libIdx: 0  },
+  { label: 'A  /  ○ Círculo',     libIdx: 8  },
+  { label: 'Y  /  □ Cuadro',      libIdx: 1  },
+  { label: 'X  /  △ Triángulo',   libIdx: 9  },
+  { label: 'L1',                  libIdx: 10 },
+  { label: 'R1',                  libIdx: 11 },
+  { label: 'L2',                  libIdx: 12 },
+  { label: 'R2',                  libIdx: 13 },
+  { label: 'Select',              libIdx: 2  },
+  { label: 'Start',               libIdx: 3  },
+];
+
+let gpadRemapListening = null;
+let gpadRemapPollId    = null;
+
+function getPhysicalBtn(libIdx) {
+  for (const [p, l] of Object.entries(gpadMap)) {
+    if (l === libIdx) return Number(p);
+  }
+  return null;
+}
+
+function renderGpadRemapper() {
+  const grid = document.getElementById('gpad-remap-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (const action of GPAD_REMAP_ACTIONS) {
+    const physBtn = getPhysicalBtn(action.libIdx);
+    const row = document.createElement('div');
+    row.className = 'gpad-remap-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'gpad-action-label';
+    lbl.textContent = action.label;
+    const btnLabel = document.createElement('span');
+    btnLabel.className = 'gpad-btn-label';
+    btnLabel.id = `gpad-btn-label-${action.libIdx}`;
+    btnLabel.textContent = physBtn !== null ? `BTN ${physBtn}` : 'No asignado';
+    const remapBtn = document.createElement('button');
+    remapBtn.className = 'gpad-remap-btn key-btn';
+    remapBtn.id = `gpad-remap-btn-${action.libIdx}`;
+    remapBtn.textContent = 'Reasignar';
+    remapBtn.addEventListener('click', () => startGpadRemap(action.libIdx, remapBtn));
+    row.appendChild(lbl);
+    row.appendChild(btnLabel);
+    row.appendChild(remapBtn);
+    grid.appendChild(row);
+  }
+}
+
+function startGpadRemap(libIdx, btn) {
+  cancelGpadRemap();
+  gpadRemapListening = libIdx;
+  btn.classList.add('listening');
+  btn.textContent = 'Presioná un botón…';
+  const prevState = {};
+  const pad0 = (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])[0];
+  if (pad0) pad0.buttons.forEach((b, i) => { prevState[i] = b.pressed || b.value > 0.1; });
+  gpadRemapPollId = setInterval(() => {
+    const pad = (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])[0];
+    if (!pad) return;
+    pad.buttons.forEach((b, physIdx) => {
+      const pressed = b.pressed || b.value > 0.1;
+      if (pressed && !prevState[physIdx]) { applyGpadRemap(physIdx, libIdx); cancelGpadRemap(); }
+      prevState[physIdx] = pressed;
+    });
+  }, 50);
+}
+
+function cancelGpadRemap() {
+  if (gpadRemapPollId) { clearInterval(gpadRemapPollId); gpadRemapPollId = null; }
+  if (gpadRemapListening !== null) {
+    const btn = document.getElementById(`gpad-remap-btn-${gpadRemapListening}`);
+    if (btn) { btn.classList.remove('listening'); btn.textContent = 'Reasignar'; }
+    gpadRemapListening = null;
+  }
+}
+
+function applyGpadRemap(physicalBtn, libIdx) {
+  const m = { ...gpadMap };
+  delete m[physicalBtn];
+  for (const [p, l] of Object.entries(m)) { if (l === libIdx) delete m[p]; }
+  m[physicalBtn] = libIdx;
+  gpadMap = m;
+  saveGpadMap();
+  renderGpadRemapper();
+  renderGamepadButtons();
+}
+
 const AXIS_DEAD = 0.5;
 
 let gpBridgeRaf = null;
@@ -1367,10 +1597,10 @@ function startGamepadBridge() {
     if (!parent) return;
     const keys   = allCoreKeys[activeCore] || {};
 
-    // Digital buttons
-    for (const [btnStr, libIdx] of Object.entries(GAMEPAD_TO_LIBRETRO)) {
+    // Digital buttons (analog triggers also detected via .value)
+    for (const [btnStr, libIdx] of Object.entries(gpadMap)) {
       const btn     = pad.buttons[Number(btnStr)];
-      const pressed = btn?.pressed || false;
+      const pressed = btn ? (btn.pressed || btn.value > 0.1) : false;
       const sk      = 'b' + btnStr;
       if (pressed !== gpBridgeState[sk]) {
         gpBridgeState[sk] = pressed;
@@ -1391,6 +1621,38 @@ function startGamepadBridge() {
         gpBridgeState[sk] = active;
         const k = keys[libIdx];
         if (k) fireKey(parent, k, active);
+      }
+    }
+
+    // P2 gamepad (second connected controller)
+    if (P2_CORES.has(activeCore)) {
+      const allPads = [...(navigator.getGamepads?.() || [])].filter(Boolean);
+      const pad2 = allPads[1];
+      if (pad2) {
+        const keys2 = allCoreKeys2[activeCore] || {};
+        for (const [btnStr, libIdx] of Object.entries(gpadMap)) {
+          const btn2    = pad2.buttons[Number(btnStr)];
+          const pressed = btn2 ? (btn2.pressed || btn2.value > 0.1) : false;
+          const sk      = 'p2b' + btnStr;
+          if (pressed !== gpBridgeState[sk]) {
+            gpBridgeState[sk] = pressed;
+            const k = keys2[libIdx];
+            if (k) fireKey(parent, k, pressed);
+          }
+        }
+        const axes2 = [
+          ['p2ax0n', pad2.axes[0] < -AXIS_DEAD, 6],
+          ['p2ax0p', pad2.axes[0] >  AXIS_DEAD, 7],
+          ['p2ax1n', pad2.axes[1] < -AXIS_DEAD, 4],
+          ['p2ax1p', pad2.axes[1] >  AXIS_DEAD, 5],
+        ];
+        for (const [sk, active, libIdx] of axes2) {
+          if (active !== gpBridgeState[sk]) {
+            gpBridgeState[sk] = active;
+            const k = keys2[libIdx];
+            if (k) fireKey(parent, k, active);
+          }
+        }
       }
     }
 
@@ -1486,30 +1748,73 @@ function stopGamepadPoll() {
   if (gpPollId) { clearInterval(gpPollId); gpPollId = null; }
 }
 
+function gpadMapLabel(physIdx) {
+  const libIdx = gpadMap[physIdx];
+  if (libIdx === undefined) return '';
+  const action = GPAD_REMAP_ACTIONS.find(a => a.libIdx === libIdx);
+  if (action) return action.label.split('/')[0].trim();
+  const dpad = { 4:'↑', 5:'↓', 6:'←', 7:'→' };
+  return dpad[libIdx] || '';
+}
+
 function renderGamepadButtons() {
+  const allPads  = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  const pad1     = allPads[0];
+  const pad2     = allPads[1];
+
   const container = document.getElementById('gamepad-buttons');
   container.innerHTML = '';
-  const pad   = (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])[0];
-  const count = pad ? pad.buttons.length : 16;
+  const count = pad1 ? pad1.buttons.length : 16;
   for (let i = 0; i < count; i++) {
+    const lbl = gpadMapLabel(i);
     const div = document.createElement('div');
     div.className = 'gp-btn';
-    div.innerHTML = `<div class="gp-name">BTN ${i}</div><div class="gp-light" id="gp-light-${i}"></div>`;
+    div.innerHTML = `<div class="gp-name">BTN ${i}${lbl ? `<br><span class="gp-action">${lbl}</span>` : ''}</div><div class="gp-light" id="gp-light-${i}"></div>`;
     container.appendChild(div);
+  }
+
+  const p2section  = document.getElementById('gpad-p2-section');
+  const container2 = document.getElementById('gamepad-buttons-2');
+  if (pad2) {
+    p2section.classList.remove('hidden');
+    container2.innerHTML = '';
+    for (let i = 0; i < pad2.buttons.length; i++) {
+      const lbl = gpadMapLabel(i);
+      const div = document.createElement('div');
+      div.className = 'gp-btn';
+      div.innerHTML = `<div class="gp-name">BTN ${i}${lbl ? `<br><span class="gp-action">${lbl}</span>` : ''}</div><div class="gp-light" id="gp2-light-${i}"></div>`;
+      container2.appendChild(div);
+    }
+  } else {
+    p2section.classList.add('hidden');
+    container2.innerHTML = '';
   }
 }
 
 function refreshGamepadLights() {
-  const pad = (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])[0];
-  if (!pad) return;
-  pad.buttons.forEach((btn, i) => {
+  const allPads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  const pad1 = allPads[0];
+  const pad2 = allPads[1];
+  if (pad1) pad1.buttons.forEach((btn, i) => {
     const el = document.getElementById(`gp-light-${i}`);
+    if (el) el.classList.toggle('on', btn.pressed || btn.value > 0.1);
+  });
+  if (pad2) pad2.buttons.forEach((btn, i) => {
+    const el = document.getElementById(`gp2-light-${i}`);
     if (el) el.classList.toggle('on', btn.pressed || btn.value > 0.1);
   });
 }
 
-window.addEventListener('gamepadconnected',    () => updateGamepadStatus());
-window.addEventListener('gamepaddisconnected', () => updateGamepadStatus());
+window.addEventListener('gamepadconnected',    () => { updateGamepadStatus(); renderGpadRemapper(); renderGamepadButtons(); });
+window.addEventListener('gamepaddisconnected', () => { updateGamepadStatus(); renderGamepadButtons(); });
+
+document.getElementById('gpad-remap-reset').addEventListener('click', () => {
+  cancelGpadRemap();
+  gpadMap = { ...DEFAULT_GPAD_MAP };
+  saveGpadMap();
+  renderGpadRemapper();
+  renderGamepadButtons();
+});
 
 // ── Keyboard shortcuts (window capture — runs before any EJS listener) ────────
 window.addEventListener('keydown', e => {
@@ -1566,6 +1871,14 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     libraryShowFavsOnly = btn.dataset.filter === 'favs';
     applyLibraryFilter();
   });
+});
+
+const sortSelect = document.getElementById('sort-select');
+sortSelect.value = librarySortOrder;
+sortSelect.addEventListener('change', () => {
+  librarySortOrder = sortSelect.value;
+  localStorage.setItem('dobbySortOrder', librarySortOrder);
+  if (currentConsoleId) renderLibrary(currentConsoleId);
 });
 
 window.addEventListener('resize', () => { if (gameActive) applyGraphics(currentGraphics); });

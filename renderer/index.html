@@ -100,6 +100,11 @@
         <button class="filter-btn active" data-filter="all">Todos</button>
         <button class="filter-btn" data-filter="favs">&#9733; Favoritos</button>
       </div>
+      <select id="sort-select" title="Ordenar">
+        <option value="az">A &#8594; Z</option>
+        <option value="za">Z &#8594; A</option>
+        <option value="fav">&#9733; Primero</option>
+      </select>
     </div>
     <div id="rom-grid-wrap">
       <div id="rom-grid"></div>
@@ -140,6 +145,10 @@
 
       <!-- CONTROLS SECTION -->
       <div id="outer-controls" class="outer-content hidden">
+        <div id="player-toggle">
+          <button class="player-btn active" data-player="1">Jugador 1</button>
+          <button class="player-btn" data-player="2">Jugador 2</button>
+        </div>
         <div class="tabs" id="console-tabs">
           <button class="tab" data-console="snes9x">SNES</button>
           <button class="tab" data-console="genesis_plus_gx">Genesis</button>
@@ -148,6 +157,7 @@
           <button class="tab" data-console="smsplus">Master System</button>
           <button class="tab" data-console="atari2600">Atari 2600</button>
           <button class="tab" data-console="nds">Nintendo DS</button>
+          <button class="tab" data-console="psx">PlayStation</button>
         </div>
         <div id="tab-keyboard" class="tab-content">
           <p class="controls-hint">Clic en un botón y después presioná la tecla que querés asignar.</p>
@@ -162,9 +172,23 @@
           Conectá tu joystick/gamepad <strong>antes</strong> de abrir un juego.<br>
           Es reconocido automáticamente. Podés verificar los botones detectados abajo.
         </p>
+        <div class="gpad-player-label">Jugador 1</div>
         <div id="gamepad-buttons"></div>
+
+        <div id="gpad-p2-section" class="hidden">
+          <div class="gpad-player-label gpad-player-label-2">Jugador 2</div>
+          <div id="gamepad-buttons-2"></div>
+        </div>
+
         <div class="gamepad-tip">
-          <strong>Tip:</strong> La mayoría de gamepads USB y Xbox/PlayStation funcionan sin configuración adicional.
+          <strong>Tip:</strong> Cada cuadradito muestra a qué acción está mapeado ese botón físico.
+        </div>
+
+        <div class="gpad-remap-section">
+          <div class="gpad-remap-title">Mapeo de botones</div>
+          <p class="controls-hint">Hacé clic en "Reasignar" y después presioná el botón del joystick que querés usar para esa acción.</p>
+          <div id="gpad-remap-grid"></div>
+          <button id="gpad-remap-reset" class="modal-cancel-btn" style="margin-top:10px">Restaurar predeterminado</button>
         </div>
       </div>
 
