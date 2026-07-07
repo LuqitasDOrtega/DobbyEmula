@@ -149,15 +149,21 @@
           <button class="player-btn active" data-player="1">Jugador 1</button>
           <button class="player-btn" data-player="2">Jugador 2</button>
         </div>
-        <div class="tabs" id="console-tabs">
-          <button class="tab" data-console="snes9x">SNES</button>
-          <button class="tab" data-console="genesis_plus_gx">Genesis</button>
-          <button class="tab" data-console="mgba">GBA</button>
-          <button class="tab" data-console="gambatte">Game Boy</button>
-          <button class="tab" data-console="smsplus">Master System</button>
-          <button class="tab" data-console="atari2600">Atari 2600</button>
-          <button class="tab" data-console="nds">Nintendo DS</button>
-          <button class="tab" data-console="psx">PlayStation</button>
+        <div class="tabs-scroller">
+          <button class="tabs-arrow" id="console-tabs-prev" aria-label="Ver consolas anteriores">&#10094;</button>
+          <div class="tabs" id="console-tabs">
+            <button class="tab" data-console="snes9x">SNES</button>
+            <button class="tab" data-console="genesis_plus_gx">Genesis</button>
+            <button class="tab" data-console="mgba">GBA</button>
+            <button class="tab" data-console="gambatte">Game Boy</button>
+            <button class="tab" data-console="smsplus">Master System</button>
+            <button class="tab" data-console="atari2600">Atari 2600</button>
+            <button class="tab" data-console="nds">Nintendo DS</button>
+            <button class="tab" data-console="psx">PlayStation</button>
+            <button class="tab" data-console="nes">NES</button>
+            <button class="tab" data-console="pce">PC Engine</button>
+          </div>
+          <button class="tabs-arrow" id="console-tabs-next" aria-label="Ver más consolas">&#10095;</button>
         </div>
         <div id="tab-keyboard" class="tab-content">
           <p class="controls-hint">Clic en un botón y después presioná la tecla que querés asignar.</p>

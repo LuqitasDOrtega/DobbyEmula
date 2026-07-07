@@ -12,7 +12,7 @@ Frontend de emulación de escritorio para Windows (y próximamente Mac y Android
 ```
 Emulador/
 ├── dist/
-│   ├── DobbyEmula 1.1.3.exe     ← EXE portable final
+│   ├── DobbyEmula 1.1.4.exe     ← EXE portable final
 │   ├── Icono DobbyEmula.png     ← Imagen fuente del ícono (la del usuario)
 │   ├── ROMs/                    ← ROMs del usuario (deben estar AL LADO del .exe)
 │   │   ├── Sega Genesis/
@@ -23,7 +23,9 @@ Emulador/
 │   │   ├── Game Boy/
 │   │   ├── Atari 2600/
 │   │   ├── Nintendo DS/
-│   │   └── PlayStation/
+│   │   ├── PlayStation/
+│   │   ├── NES/
+│   │   └── PC Engine/
 │   └── Saves/                   ← Save states portables (creada automáticamente)
 │       ├── genesis/
 │       ├── gba/
@@ -46,7 +48,9 @@ Emulador/
 │       ├── snes9x-wasm.data / snes9x-legacy-wasm.data
 │       ├── stella2014-wasm.data / stella2014-legacy-wasm.data
 │       ├── desmume-wasm.data / desmume-legacy-wasm.data
-│       └── pcsx_rearmed-wasm.data / pcsx_rearmed-legacy-wasm.data
+│       ├── pcsx_rearmed-wasm.data / pcsx_rearmed-legacy-wasm.data
+│       ├── fceumm-wasm.data / fceumm-legacy-wasm.data
+│       └── mednafen_pce-wasm.data / mednafen_pce-legacy-wasm.data
 ├── ROMs/                         ← ROMs en desarrollo
 │   ├── Sega Genesis/             (.md .gen .smd .bin .68k)
 │   ├── Super Nintendo/           (.sfc .smc .snes)
@@ -56,7 +60,9 @@ Emulador/
 │   ├── Game Boy/                 (.gb)
 │   ├── Atari 2600/               (.a26 .bin .rom)
 │   ├── Nintendo DS/              (.nds)
-│   └── PlayStation/              (.cue .iso .chd .pbp .img .bin)
+│   ├── PlayStation/              (.cue .iso .chd .pbp .img .bin)
+│   ├── NES/                      (.nes)
+│   └── PC Engine/                (.pce)
 ├── Saves/                        ← Save states en desarrollo
 │   ├── genesis/
 │   ├── gba/
@@ -87,7 +93,7 @@ Expand-Archive -Path $zip -DestinationPath "node_modules\electron\dist" -Force
 ```
 npm run build
 ```
-Genera `dist\DobbyEmula 1.1.3.exe` (~88MB portable).
+Genera `dist\DobbyEmula 1.1.4.exe` (~86MB portable).
 
 ## Git y GitHub
 
@@ -101,7 +107,7 @@ Genera `dist\DobbyEmula 1.1.3.exe` (~88MB portable).
 ### Ícono del .exe (explorador de Windows)
 - Fuente: `dist/Icono DobbyEmula.png` (imagen del usuario — triángulo ▶ 3D morado con calcetín y texto "DobbyEmu")
 - Copiada a `assets/icon.png` (sin espacios para evitar problemas)
-- `package.json` apunta a `"icon": "assets/icon.png"` → electron-builder convierte a ICO internamente
+- `package.json` apunta a `"icon": "assets/icon-preview.png"` → electron-builder convierte a ICO internamente
 - **IMPORTANTE**: NO usar el `assets/icon.ico` generado por `gen-icon.mjs` — electron-builder convierte el PNG él solo de forma más confiable
 
 ### Ícono dentro de la app (titlebar + home screen)
@@ -176,11 +182,11 @@ function getSavesDir() {
 - `scan-roms` IPC: escanea las carpetas, devuelve `{ id, core, name, folder, exts, roms[] }[]`
 - También **crea las subcarpetas** de ROMs si no existen y **regenera `_Léeme.txt` en cada una siempre** (para reflejar extensiones actuales)
 - `open-rom-by-path` IPC: carga una ROM por path sin diálogo
-- `CONSOLES` array en main.js define las 9 consolas con sus carpetas y extensiones
+- `CONSOLES` array en main.js define las 11 consolas con sus carpetas y extensiones
 
 ### Cover art (renderer/app.js)
 - Fuente: **libretro-thumbnails** en GitHub (sin API key, igual que RetroArch)
-- Sistemas: `Sega_-_Mega_Drive_-_Genesis`, `Sega_-_Master_System_-_Mark_III`, `Nintendo_-_Game_Boy_Advance`, `Nintendo_-_Game_Boy_Color`, `Nintendo_-_Game_Boy`, `Atari_-_2600`, `Nintendo_-_Nintendo_DS`, `Sony_-_PlayStation`
+- Sistemas: `Sega_-_Mega_Drive_-_Genesis`, `Sega_-_Master_System_-_Mark_III`, `Nintendo_-_Game_Boy_Advance`, `Nintendo_-_Game_Boy_Color`, `Nintendo_-_Game_Boy`, `Atari_-_2600`, `Nintendo_-_Nintendo_DS`, `Sony_-_PlayStation`, `Nintendo_-_Nintendo_Entertainment_System`, `NEC_-_PC_Engine_-_TurboGrafx_16`
 - Cache: localStorage `dobbycover_{consoleId}_{romName}` (base64 dataURL)
 - Si no hay cover → placeholder con las 2 primeras letras del nombre
 - Botón `✎` en hover → imagen propia (mismo cache key)
@@ -218,6 +224,8 @@ function getSavesDir() {
 | `.a26`, `.bin`, `.rom` | `atari2600` | stella2014 |
 | `.nds` | `nds` | desmume |
 | `.cue`, `.iso`, `.chd`, `.pbp`, `.img`, `.bin` | `psx` | pcsx_rearmed |
+| `.nes` | `nes` | fceumm |
+| `.pce` | `pce` | mednafen_pce |
 
 **CRÍTICO — EJS espera el nombre del SISTEMA, no del core:**
 - `window.EJS_core` debe ser el sistema (`atari2600`, `nds`, `gba`, `psx`) — EJS elige el core internamente
@@ -234,8 +242,8 @@ function getSavesDir() {
 `CORE_PROFILES` define botones, índices libretro y teclas por defecto para P1. Se guarda en `dobbyControls_${core}` en localStorage.
 
 **Jugador 2:**
-- Consolas con soporte P2: `genesis_plus_gx`, `snes9x`, `smsplus`, `psx` (definidas en `P2_CORES`)
-- GBA, Game Boy, NDS, Atari 2600 NO tienen P2
+- Consolas con soporte P2: `genesis_plus_gx`, `snes9x`, `smsplus`, `psx`, `atari2600`, `nes` (definidas en `P2_CORES`)
+- GBA, Game Boy, NDS, PC Engine NO tienen P2 (un solo puerto de control en el hardware base; el PC Engine solo sumaba 2+ jugadores con el accesorio Multitap, no es el caso por defecto)
 - Teclas P2 guardadas en `dobbyControls2_{core}` en localStorage
 - Defaults P2: D-pad en IJKL, botones en U/O/H/N, hombros en Y/P/G/[
 - `patchControlsWhenReady` parchea `controls[0]` (P1) Y `controls[1]` (P2) para consolas en P2_CORES
@@ -409,7 +417,7 @@ Script `prebuild` en package.json borra todos los `.exe` de `dist/` antes de cad
 - Verificar que el ícono del .exe aparezca en el explorador después de reiniciar la PC
 - Historial de ROMs recientes (lógica `saveToRecent` ya existe, falta UI en el home)
 - Más opciones de gráficos
-- NES (fceumm/nestopia), N64 (mupen64plus_next) — cores disponibles en EJS CDN
+- **N64**: se probó y se sacó por core inestable (ver problema conocido #27) — retomar solo si aparece un core más estable
 
 ## Expansión multiplataforma (planificado)
 
@@ -417,10 +425,25 @@ Script `prebuild` en package.json borra todos los `.exe` de `dist/` antes de cad
 - Repo ya inicializado en **https://github.com/LuqitasDOrtega/DobbyEmula**
 - Cada colaborador trabaja en su propia rama y hace merge
 
-### Mac (colaborador externo)
-- Electron soporta Mac de fábrica — solo ajustar build target a `dmg` en package.json
-- Rutas de archivos usan `/` igual que Node.js `path` — compatibles
-- El menú nativo de Mac va en la barra superior del sistema, no en la ventana — hay que adaptar el menú de Archivo
+### Mac — soporte agregado (código listo, falta compilar/probar en una Mac real)
+**IMPORTANTE**: electron-builder no puede generar el `.dmg` desde Windows (la creación del disk image necesita herramientas nativas de macOS como `hdiutil`). El código ya está preparado; falta que alguien con Mac corra el build ahí.
+
+**Cómo generar el build en la Mac:**
+```bash
+npm install
+npm run build:mac
+```
+Genera `dist/DobbyEmula-*.dmg` y `dist/DobbyEmula-*-mac.zip` (arquitectura = la de esa Mac: Apple Silicon o Intel, detectada automáticamente). Si en algún momento se quiere un build universal (arm64 + x64) para repartir públicamente, hay que agregar `"arch": "universal"` al bloque `mac` en package.json — no hecho todavía porque no hacía falta para que el amigo del usuario lo pruebe en su propia máquina.
+
+**Qué se adaptó en el código:**
+- `getPortableBaseDir()` en main.js reemplaza la lógica que antes estaba duplicada en `getRomsDir`/`getSavesDir`. En Mac, `process.execPath` apunta a `AppName.app/Contents/MacOS/AppName` — sube 4 niveles (`dirname` x4) para llegar a la carpeta que contiene el `.app`, y ahí crea `ROMs/` y `Saves/`, igual que el comportamiento portable de Windows (`PORTABLE_EXECUTABLE_DIR`).
+- **Menú nativo de aplicación**: la ventana sigue sin frame (`frame: false`) y el menú "Archivo/Emulación/Configuración" sigue dibujado a mano en el HTML — pero en Mac hace falta igual un `Menu` de Electron en la barra superior del sistema para que anden Cmd+Q, Cmd+C/V, Cmd+M, etc. `buildAppMenu()` en main.js arma ese menú (App/Editar/Ventana con roles estándar) solo si `process.platform === 'darwin'`; en Windows/Linux sigue siendo `null` como antes.
+- **Ciclo de vida de la app**: se separó el cierre del servidor HTTP local (`before-quit`) de `window-all-closed`, porque en Mac la app se queda viva en el Dock sin ventanas — si el servidor se cerraba ahí, reabrir la ventana con el ícono del Dock (`activate`) cargaba una página rota sin servidor. Ahora `activate` recrea la ventana si hace falta y el servidor sigue vivo hasta el `before-quit` real.
+- `package.json`: nuevo bloque `"mac"` (target `dmg` + `zip`, mismo ícono que Windows, categoría `public.app-category.games`) y script `npm run build:mac` (con su propio `prebuild:mac` que limpia `.dmg`/`.zip` viejos de `dist/`, igual que el `prebuild` de Windows limpia `.exe` viejos).
+- Rutas de archivos: ya usaban `path.join`/`path.dirname` de Node en vez de strings con `\`, así que no hizo falta tocar nada ahí — ya eran compatibles.
+- Atajos de teclado: el código ya chequeaba `e.ctrlKey || e.metaKey` en vez de solo `ctrlKey`, así que Ctrl+O también funciona con Cmd en Mac sin cambios (la tabla de Atajos sigue mostrando el label "Ctrl+O" nomás por texto, es cosmético).
+
+**Sin verificar todavía** (falta la Mac del amigo): que el `.dmg` abra bien, que el ícono se vea correcto, y que el drag de la ventana sin frame funcione igual que en Windows. EmulatorJS/WASM no debería dar problemas — Electron en Mac empaqueta Chromium igual que en Windows, mismo motor.
 
 ### Mobile / Android (futuro)
 - Tecnología: **Capacitor** — toma el renderer HTML/CSS/JS existente y lo empaqueta como app nativa
@@ -549,6 +572,32 @@ $base = "https://cdn.emulatorjs.org/4.2.3/data"; $dir = ".\emulatorjs"
 ### 24. background-image en #screen-home no visible
 **Causa**: opacidad `0.03` en líneas de 1px sobre fondo oscuro era imperceptible.
 **Solución**: subir a `0.04` con líneas de 2px. Calibrado iterativamente en modo dev con `npm start`.
+
+## Problemas conocidos resueltos (sesión 2026-07-06)
+
+### 25. Menú de Jugador 2 no mostraba Atari 2600
+**Causa**: `P2_CORES` no incluía `atari2600`. GBA/Game Boy/NDS quedan afuera con razón (son de un solo jugador, sin segundo puerto), pero Atari 2600 sí tiene 2 joysticks reales (Combat, Pong, Warlords, etc.) y había quedado excluido por error.
+**Solución**: agregado `atari2600` a `P2_CORES`. El sistema de teclas P2 es genérico por índice libretro, no necesitó cambios adicionales.
+
+### 26. NES agregada como consola
+- id `nes`, sistema EJS `nes`, core real `fceumm`, extensión `.nes`. Perfil de controles simple (D-pad + A/B + Start/Select) — funciona 100% porque es un mapeo totalmente digital.
+- Agregada a `P2_CORES` (el NES real tiene 2 puertos de control).
+- Cover art: `Nintendo_-_Nintendo_Entertainment_System` en libretro-thumbnails.
+- Core descargado del CDN: `fceumm-wasm.data` + `fceumm-legacy-wasm.data`.
+- De paso se agregó color de card en el home para PSX (`styles.css`), que había quedado sin definir en la sesión que lo sumó.
+
+### 27. Nintendo 64 agregada y sacada en la misma sesión — core inestable
+Se agregó N64 (sistema EJS `n64`, core `mupen64plus_next`) igual que NES, pero al probar con una ROM real (Donkey Kong 64) el juego cargaba y a los pocos segundos crasheaba: `RuntimeError: memory access out of bounds` en el WASM, dejando la pantalla con un patrón de rayas (frame de video corrupto).
+
+**Causa**: no es un bug de esta app — es una falla conocida y reportada en el propio core `mupen64plus_next` compilado a WASM que usa EmulatorJS (relacionado con el manejo del contexto OpenGL/timing del loop principal), documentada en issues públicos de EmulatorJS. Pasa más en juegos de N64 pesados para el renderizado 3D.
+
+**Decisión**: se sacó N64 completamente (main.js, app.js, index.html, styles.css, cores `.data` borrados) hasta encontrar una solución mejor — no vale la pena ofrecer una consola que se cuelga. Si se retoma en el futuro, probar primero con ROMs livianas para ver si el crash es específico de juegos exigentes, o esperar una versión más nueva de EmulatorJS que quizás incluya un core de N64 más estable (se vio mención de un core "Ares64" en versiones más nuevas, no disponible en la v4.2.3 que usa esta app).
+
+### 28. PC Engine / TurboGrafx-16 agregada como consola
+- id `pce`, sistema EJS `pce`, core real `mednafen_pce`, extensión `.pce`. Perfil de controles simple (D-pad + Botón I/II + Select/Run) — 100% digital, misma categoría de estabilidad que NES/Genesis, sin el riesgo que tuvo N64.
+- NO agregada a `P2_CORES`: el PC Engine base tiene un solo puerto de control (el Multitap para 2+ jugadores era un accesorio aparte, no viene de fábrica).
+- Cover art: `NEC_-_PC_Engine_-_TurboGrafx_16` en libretro-thumbnails.
+- Core descargado del CDN: `mednafen_pce-wasm.data` + `mednafen_pce-legacy-wasm.data`.
 
 ## Testing automatizado
 Playwright con `_electron` API. Inyectar ROM via `startGame()`, inspeccionar estado con `page.evaluate()`. No hay test-driver permanente — los tests se escriben inline y se borran después.

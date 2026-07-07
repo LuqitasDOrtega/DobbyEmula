@@ -92,9 +92,55 @@ function startEmujsServer() {
   });
 }
 
+// ── macOS application menu ────────────────────────────────────────────────────
+// La ventana no tiene menú propio (frame: false, menú "Archivo" dibujado en el
+// HTML) — pero en Mac hace falta igual el menú de aplicación en la barra
+// superior del sistema para que funcionen Cmd+Q, Cmd+C/V, Cmd+M, etc. En
+// Windows/Linux se mantiene sin menú, como antes.
+function buildAppMenu() {
+  if (process.platform !== 'darwin') return null;
+  return Menu.buildFromTemplate([
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Editar',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'Ventana',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'close' },
+      ],
+    },
+  ]);
+}
+
 // ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
-  Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(buildAppMenu());
 
   mainWindow = new BrowserWindow({
     width: 1024,
@@ -121,8 +167,14 @@ app.whenReady().then(async () => {
   setTimeout(checkForUpdates, 5000);
 });
 app.on('window-all-closed', () => {
-  emujsServer?.close();
+  // En Mac la app se queda viva en el Dock sin ventanas — no cerrar el
+  // servidor acá, sino recién al salir de verdad (before-quit).
   if (process.platform !== 'darwin') app.quit();
+});
+app.on('before-quit', () => { emujsServer?.close(); });
+app.on('activate', () => {
+  // Mac: reabrir la ventana al clickear el ícono del Dock si no hay ninguna.
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
 // ── IPC ───────────────────────────────────────────────────────────────────────
@@ -148,6 +200,8 @@ const CORE_MAP = {
   '.chd': 'psx',
   '.pbp': 'psx',
   '.img': 'psx',
+  '.nes': 'nes',
+  '.pce': 'pce',
 };
 
 const CONSOLES = [
@@ -160,25 +214,28 @@ const CONSOLES = [
   { id: 'atari2600',    core: 'atari2600',        name: 'Atari 2600',       folder: 'Atari 2600',       exts: ['.a26','.bin','.rom'] },
   { id: 'nds',          core: 'nds',              name: 'Nintendo DS',      folder: 'Nintendo DS',      exts: ['.nds'] },
   { id: 'psx',          core: 'psx',              name: 'PlayStation',      folder: 'PlayStation',      exts: ['.cue','.iso','.chd','.pbp','.img','.bin'] },
+  { id: 'nes',          core: 'nes',              name: 'NES',              folder: 'NES',              exts: ['.nes'] },
+  { id: 'pce',          core: 'pce',              name: 'PC Engine',        folder: 'PC Engine',        exts: ['.pce'] },
 ];
 
-function getRomsDir() {
-  if (app.isPackaged) {
-    const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
-    if (portableDir) return path.join(portableDir, 'ROMs');
-    return path.join(path.dirname(process.execPath), 'ROMs');
+// Carpeta "portable" al lado del ejecutable — donde viven ROMs/ y Saves/.
+// Windows: PORTABLE_EXECUTABLE_DIR (seteada por el target portable de electron-builder).
+// macOS: process.execPath apunta a AppName.app/Contents/MacOS/AppName — subimos
+// 4 niveles para llegar a la carpeta que contiene el .app (mismo lugar en el
+// que el usuario lo tenga: Descargas, Aplicaciones, etc.), imitando el mismo
+// comportamiento portable que en Windows.
+function getPortableBaseDir() {
+  if (!app.isPackaged) return __dirname;
+  if (process.platform === 'darwin') {
+    return path.dirname(path.dirname(path.dirname(path.dirname(process.execPath))));
   }
-  return path.join(__dirname, 'ROMs');
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  if (portableDir) return portableDir;
+  return path.dirname(process.execPath);
 }
 
-function getSavesDir() {
-  if (app.isPackaged) {
-    const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
-    if (portableDir) return path.join(portableDir, 'Saves');
-    return path.join(path.dirname(process.execPath), 'Saves');
-  }
-  return path.join(__dirname, 'Saves');
-}
+function getRomsDir()  { return path.join(getPortableBaseDir(), 'ROMs'); }
+function getSavesDir() { return path.join(getPortableBaseDir(), 'Saves'); }
 
 function sanitizeName(name) {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100);
@@ -232,7 +289,7 @@ ipcMain.handle('open-rom', async () => {
     title: 'Abrir ROM',
     properties: ['openFile'],
     filters: [
-      { name: 'ROMs',         extensions: ['gba','gb','gbc','md','gen','smd','bin','sms','gg','68k','sfc','smc','snes','cue','iso','chd','pbp','img','a26','rom','nds'] },
+      { name: 'ROMs',         extensions: ['gba','gb','gbc','md','gen','smd','bin','sms','gg','68k','sfc','smc','snes','cue','iso','chd','pbp','img','a26','rom','nds','nes','pce'] },
       { name: 'Todos',        extensions: ['*'] },
     ],
   });

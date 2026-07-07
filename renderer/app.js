@@ -110,6 +110,8 @@ const CONSOLE_META = {
   atari2600:    { topLine: 'ATARI',     bottomLine: '2600'     },
   nds:          { topLine: 'NINTENDO',  bottomLine: 'DS'       },
   psx:          { topLine: 'PLAY',      bottomLine: 'STATION'  },
+  nes:          { topLine: 'NINTENDO',  bottomLine: 'NES'      },
+  pce:          { topLine: 'PC',        bottomLine: 'ENGINE'   },
 };
 
 // ── Cover art via libretro-thumbnails ─────────────────────────────────────────
@@ -123,6 +125,8 @@ const LIBRETRO_SYSTEMS = {
   atari2600:    'Atari_-_2600',
   nds:          'Nintendo_-_Nintendo_DS',
   psx:          'Sony_-_PlayStation',
+  nes:          'Nintendo_-_Nintendo_Entertainment_System',
+  pce:          'NEC_-_PC_Engine_-_TurboGrafx_16',
 };
 
 // Limit concurrent cover fetches
@@ -869,6 +873,32 @@ const CORE_PROFILES = {
       { label: 'Select',    idx: 2,  defaultKey: 'Backspace'  },
     ],
   },
+  nes: {
+    name: 'NES',
+    buttons: [
+      { label: 'Arriba',    idx: 4, defaultKey: 'ArrowUp'    },
+      { label: 'Abajo',     idx: 5, defaultKey: 'ArrowDown'  },
+      { label: 'Izquierda', idx: 6, defaultKey: 'ArrowLeft'  },
+      { label: 'Derecha',   idx: 7, defaultKey: 'ArrowRight' },
+      { label: 'Botón A',   idx: 8, defaultKey: 'x'          },
+      { label: 'Botón B',   idx: 0, defaultKey: 'z'          },
+      { label: 'Start',     idx: 3, defaultKey: 'Enter'      },
+      { label: 'Select',    idx: 2, defaultKey: 'Backspace'  },
+    ],
+  },
+  pce: {
+    name: 'PC Engine',
+    buttons: [
+      { label: 'Arriba',    idx: 4, defaultKey: 'ArrowUp'    },
+      { label: 'Abajo',     idx: 5, defaultKey: 'ArrowDown'  },
+      { label: 'Izquierda', idx: 6, defaultKey: 'ArrowLeft'  },
+      { label: 'Derecha',   idx: 7, defaultKey: 'ArrowRight' },
+      { label: 'Botón I',   idx: 0, defaultKey: 'z'          },
+      { label: 'Botón II',  idx: 8, defaultKey: 'x'          },
+      { label: 'Select',    idx: 2, defaultKey: 'Backspace'  },
+      { label: 'Run',       idx: 3, defaultKey: 'Enter'      },
+    ],
+  },
 };
 
 // ── Key storage ───────────────────────────────────────────────────────────────
@@ -896,7 +926,7 @@ for (const core of Object.keys(CORE_PROFILES)) allCoreKeys[core] = loadCoreKeys(
 let workingCoreKeys = {};
 
 // ── Player 2 controls ─────────────────────────────────────────────────────────
-const P2_CORES = new Set(['genesis_plus_gx', 'snes9x', 'smsplus', 'psx']);
+const P2_CORES = new Set(['genesis_plus_gx', 'snes9x', 'smsplus', 'psx', 'atari2600', 'nes']);
 
 const P2_DEFAULT_KEYS = {
   0: 'u', 1: 'h', 2: '-', 3: '=',
@@ -1255,6 +1285,7 @@ function switchOuterTab(name) {
   else stopGamepadPoll();
   if (name === 'graphics')  initGraphicsTab();
   if (name === 'shortcuts') initShortcutsTab();
+  if (isControls) updateTabsArrows();
 }
 
 let gamePausedByModal = false;
@@ -1287,6 +1318,7 @@ function openSettingsModal(outerTab = 'controls', consoleTab = null) {
     }
   }
   modal.classList.remove('hidden');
+  if (outerTab === 'controls') updateTabsArrows();
 }
 
 function openControlsModal(consoleTab = null) { openSettingsModal('controls', consoleTab); }
@@ -1442,7 +1474,21 @@ function updateConsoleTabsVisibility() {
     const first = document.querySelector('#console-tabs .tab:not(.hidden)');
     if (first) switchConsoleTab(first.dataset.console);
   }
+  updateTabsArrows();
 }
+
+const consoleTabsEl = document.getElementById('console-tabs');
+const tabsPrevBtn   = document.getElementById('console-tabs-prev');
+const tabsNextBtn   = document.getElementById('console-tabs-next');
+
+function updateTabsArrows() {
+  const maxScroll = consoleTabsEl.scrollWidth - consoleTabsEl.clientWidth;
+  tabsPrevBtn.classList.toggle('hidden', consoleTabsEl.scrollLeft <= 2);
+  tabsNextBtn.classList.toggle('hidden', consoleTabsEl.scrollLeft >= maxScroll - 2);
+}
+tabsPrevBtn.addEventListener('click', () => consoleTabsEl.scrollBy({ left: -150, behavior: 'smooth' }));
+tabsNextBtn.addEventListener('click', () => consoleTabsEl.scrollBy({ left: 150, behavior: 'smooth' }));
+consoleTabsEl.addEventListener('scroll', updateTabsArrows);
 
 document.querySelectorAll('.player-btn').forEach(btn => {
   btn.addEventListener('click', () => {
