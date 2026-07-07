@@ -143,6 +143,11 @@ const CORE_MAP = {
   '.a26': 'atari2600',
   '.rom': 'atari2600',
   '.nds': 'nds',
+  '.cue': 'psx',
+  '.iso': 'psx',
+  '.chd': 'psx',
+  '.pbp': 'psx',
+  '.img': 'psx',
 };
 
 const CONSOLES = [
@@ -154,6 +159,7 @@ const CONSOLES = [
   { id: 'gb',           core: 'gambatte',         name: 'Game Boy',         folder: 'Game Boy',         exts: ['.gb'] },
   { id: 'atari2600',    core: 'atari2600',        name: 'Atari 2600',       folder: 'Atari 2600',       exts: ['.a26','.bin','.rom'] },
   { id: 'nds',          core: 'nds',              name: 'Nintendo DS',      folder: 'Nintendo DS',      exts: ['.nds'] },
+  { id: 'psx',          core: 'psx',              name: 'PlayStation',      folder: 'PlayStation',      exts: ['.cue','.iso','.chd','.pbp','.img','.bin'] },
 ];
 
 function getRomsDir() {
@@ -226,7 +232,7 @@ ipcMain.handle('open-rom', async () => {
     title: 'Abrir ROM',
     properties: ['openFile'],
     filters: [
-      { name: 'ROMs',         extensions: ['gba','gb','gbc','md','gen','smd','bin','sms','gg','68k','sfc','smc','snes'] },
+      { name: 'ROMs',         extensions: ['gba','gb','gbc','md','gen','smd','bin','sms','gg','68k','sfc','smc','snes','cue','iso','chd','pbp','img','a26','rom','nds'] },
       { name: 'Todos',        extensions: ['*'] },
     ],
   });
