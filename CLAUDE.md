@@ -392,7 +392,7 @@ TOKEN=$(echo "$REMOTE" | sed -E 's#https://[^:]+:([^@]+)@.*#\1#')
 curl -s -X POST "https://api.github.com/repos/LuqitasDOrtega/DobbyEmula/releases" \
   -H "Authorization: token $TOKEN" -H "Accept: application/vnd.github+json" \
   -H "User-Agent: DobbyEmula-Release-Script" -H "Content-Type: application/json" \
-  -d '{"tag_name":"v1.1.4","name":"DobbyEmula v1.1.4","body":"...","draft":false,"prerelease":false}'
+  -d '{"tag_name":"v{version}","name":"DobbyEmula v{version}","body":"...","draft":false,"prerelease":false}'
 # devuelve el "id" del release, usarlo abajo
 
 # 2. Subir el .exe como asset (nota: GitHub reemplaza espacios del nombre por puntos)
