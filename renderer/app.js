@@ -1115,6 +1115,9 @@ function startGame(rom) {
   window.EJS_startOnLoaded = true;
   window.EJS_Buttons       = { playPause: true, restart: true, fullscreen: true, saveState: true, loadState: true, screenshot: true };
   window.EJS_defaultOptions = { 'save-state-location': 'browser' };
+  // PSX (pcsx_rearmed) es el único core con el .data multi-hilo descargado —
+  // reparte trabajo entre threads via SharedArrayBuffer, ayuda con juegos pesados.
+  window.EJS_threads = rom.core === 'psx';
 
   const script = document.createElement('script');
   script.src   = base + 'loader.js';

@@ -3,6 +3,7 @@ const path  = require('path');
 const fs    = require('fs');
 const http  = require('http');
 const https = require('https');
+const zlib  = require('zlib');
 
 const GITHUB_REPO = 'LuqitasDOrtega/DobbyEmula';
 
@@ -245,11 +246,122 @@ function stateFilePath(consoleId, romName, slot) {
   return path.join(getSavesDir(), consoleId, `${sanitizeName(romName)}_slot${slot}.state`);
 }
 
+// Los juegos de PSX multi-pista traen 1 .cue + varios .bin (pistas de audio CD).
+// El .cue referencia cada .bin por nombre exacto en líneas `FILE "x.bin" BINARY`.
+function parseCueFileRefs(content) {
+  const refs = [];
+  const re = /FILE\s+(?:"([^"]+)"|(\S+))\s+BINARY/gi;
+  let m;
+  while ((m = re.exec(content))) refs.push(m[1] || m[2]);
+  return refs;
+}
+
+// Sin este filtro, cada .bin referenciado aparecería como una entrada aparte
+// en la biblioteca además del .cue.
+function getCueReferencedBins(dir, cueFiles) {
+  const referenced = new Set();
+  for (const cueFile of cueFiles) {
+    try {
+      const content = fs.readFileSync(path.join(dir, cueFile), 'utf8');
+      for (const ref of parseCueFileRefs(content)) referenced.add(ref.toLowerCase());
+    } catch (_) {}
+  }
+  return referenced;
+}
+
+// EmulatorJS solo puede arrancar un juego desde UN archivo (o un .zip/.7z que
+// contenga varios). Un .cue de PSX multi-pista necesita el .cue + todos sus
+// .bin en el mismo "disco" virtual — así que se empaquetan en un .zip en
+// memoria (sin comprimir, más rápido) y eso es lo que se le manda al emulador.
+// EJS detecta el formato por firma de bytes (PK\x03\x04) y lo descomprime solo.
+function buildStoredZip(entries) {
+  const localParts   = [];
+  const centralParts = [];
+  let offset = 0;
+  const now     = new Date();
+  const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+  const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+
+  for (const { name, data } of entries) {
+    const nameBuf = Buffer.from(name, 'utf8');
+    const crc     = zlib.crc32(data) >>> 0;
+    const size    = data.length;
+
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(dosTime, 10);
+    localHeader.writeUInt16LE(dosDate, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(size, 18);
+    localHeader.writeUInt32LE(size, 22);
+    localHeader.writeUInt16LE(nameBuf.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+    localParts.push(localHeader, nameBuf, data);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(dosTime, 12);
+    centralHeader.writeUInt16LE(dosDate, 14);
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(size, 20);
+    centralHeader.writeUInt32LE(size, 24);
+    centralHeader.writeUInt16LE(nameBuf.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    centralParts.push(centralHeader, nameBuf);
+
+    offset += localHeader.length + nameBuf.length + data.length;
+  }
+
+  const centralDirStart = offset;
+  const centralDir      = Buffer.concat(centralParts);
+
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralDir.length, 12);
+  eocd.writeUInt32LE(centralDirStart, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDir, eocd]);
+}
+
+// Arma el .zip en memoria para un .cue: el archivo mismo + cada .bin que referencia.
+function buildCueZip(cuePath) {
+  const dir       = path.dirname(cuePath);
+  const cueName   = path.basename(cuePath);
+  const cueBuffer = fs.readFileSync(cuePath);
+  const refs      = parseCueFileRefs(cueBuffer.toString('utf8'));
+  const dirFiles  = fs.readdirSync(dir);
+
+  const entries = [{ name: cueName, data: cueBuffer }];
+  for (const ref of refs) {
+    const match = dirFiles.find(f => f.toLowerCase() === ref.toLowerCase());
+    if (!match) throw new Error(`No se encontró "${ref}" (referenciado por ${cueName})`);
+    entries.push({ name: match, data: fs.readFileSync(path.join(dir, match)) });
+  }
+  return buildStoredZip(entries);
+}
+
 ipcMain.handle('scan-roms', () => {
   const base = getRomsDir();
   return CONSOLES.map(con => {
     const dir  = path.join(base, con.folder);
-    const roms = [];
+    let roms = [];
     try {
       fs.mkdirSync(dir, { recursive: true });
       const readme = path.join(dir, '_Léeme.txt');
@@ -262,11 +374,17 @@ ipcMain.handle('scan-roms', () => {
           'utf8'
         );
       }
-      for (const file of fs.readdirSync(dir)) {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
         const ext = path.extname(file).toLowerCase();
         if (con.exts.includes(ext)) {
           roms.push({ name: path.basename(file, ext), file, ext, fullPath: path.join(dir, file) });
         }
+      }
+      if (con.exts.includes('.cue')) {
+        const cueFiles    = files.filter(f => path.extname(f).toLowerCase() === '.cue');
+        const referenced  = getCueReferencedBins(dir, cueFiles);
+        roms = roms.filter(r => !(r.ext === '.bin' && referenced.has(r.file.toLowerCase())));
       }
     } catch (_) {}
     return { ...con, roms };
@@ -277,6 +395,17 @@ ipcMain.handle('open-rom-by-path', (_, romPath) => {
   const ext  = path.extname(romPath).toLowerCase();
   const core = CORE_MAP[ext];
   if (!core) return { error: `Extensión ${ext} no soportada` };
+
+  if (ext === '.cue') {
+    try {
+      const zip    = buildCueZip(romPath);
+      const buffer = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength);
+      return { name: path.basename(romPath, ext), ext, core, data: buffer, port: emujsPort };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
   const data   = fs.readFileSync(romPath);
   const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   return { name: path.basename(romPath, ext), ext, core, data: buffer, port: emujsPort };
